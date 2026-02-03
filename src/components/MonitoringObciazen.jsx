@@ -215,7 +215,11 @@ export default function MonitoringObciazen() {
       const cleanDate = String(dateValue).replace(/^"|"$/g, '');
       const date = new Date(cleanDate);
       if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
+        // Zwróć datę w formacie YYYY-MM-DD bez konwersji UTC
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
       }
     } catch (e) {
       console.error('Błąd parsowania daty:', dateValue);
@@ -224,8 +228,11 @@ export default function MonitoringObciazen() {
   };
 
   const formatDateKey = (date) => {
-    const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    return utc.toISOString().split('T')[0];
+    // Formatuj datę w formacie YYYY-MM-DD bez konwersji UTC aby uniknąć problemów z przesunięciem strefy
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
   
   // Kolory dla zawodników (dla wykresów)
@@ -278,7 +285,10 @@ export default function MonitoringObciazen() {
     if (selectedWeeks.length === 0 && selectedMonths.length === 0) return dataToFilter;
 
     return dataToFilter.filter(item => {
-      const itemDate = new Date(parseDate(item.data));
+      const dateStr = parseDate(item.data);
+      if (!dateStr) return false;
+
+      const itemDate = new Date(dateStr);
       if (!itemDate || isNaN(itemDate)) return false;
 
       const calWeekStart = getCalendarWeekStart(itemDate);
