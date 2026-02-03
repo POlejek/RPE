@@ -570,7 +570,7 @@ export default function MonitoringObciazen() {
       if (!dateStr) return;
       const date = new Date(dateStr);
       const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-      const monthKey = monthStart.toISOString().split('T')[0];
+      const monthKey = formatDateKey(monthStart);
       if (!map.has(monthKey)) {
         map.set(monthKey, {
           key: monthKey,
