@@ -179,11 +179,19 @@ export default function PHVDashboard() {
           
           const cleanColumns = columns.map(col => col.replace(/^"|"$/g, ''));
           
+          console.log(`Linia ${i}: Kolumny =`, cleanColumns);
+          
           // Struktura: Imię i Nazwisko, Płeć, Data urodzenia, Data pomiaru, Wzrost (cm), Masa (kg), Wysokość siedząca (cm)
-          if (cleanColumns.length < 7) continue;
+          if (cleanColumns.length < 7) {
+            console.log(`Pominięto linię ${i} - za mało kolumn (${cleanColumns.length})`);
+            continue;
+          }
           
           const name = cleanColumns[0];
-          if (!name || name.toLowerCase().includes('imię') || name === '') continue;
+          if (!name || name.toLowerCase().includes('imię') || name === '') {
+            console.log(`Pominięto linię ${i} - nagłówek lub puste nazwisko`);
+            continue;
+          }
           
           const gender = cleanColumns[1];
           const birthDate = cleanColumns[2];
@@ -192,14 +200,26 @@ export default function PHVDashboard() {
           const weight = parseFloat(cleanColumns[5]) || 0;
           const sittingHeight = parseFloat(cleanColumns[6]) || 0;
           
-          if (height === 0 || weight === 0 || sittingHeight === 0) continue;
+          console.log(`Zawodnik: ${name}, Płeć: ${gender}, Wzrost: ${height}, Masa: ${weight}, Wys.siedz: ${sittingHeight}`);
+          
+          if (height === 0 || weight === 0 || sittingHeight === 0) {
+            console.log(`Pominięto linię ${i} - brak pomiarów`);
+            continue;
+          }
           
           const legLength = height - sittingHeight;
           const age = calculateAge(birthDate, measurementDate);
           
-          if (age === 0) continue;
+          console.log(`Wiek: ${age}, Długość nóg: ${legLength}`);
+          
+          if (age === 0) {
+            console.log(`Pominięto linię ${i} - brak wieku`);
+            continue;
+          }
           
           const phvResults = calculatePHV(gender, age, height, weight, sittingHeight, legLength);
+          
+          console.log(`PHV Results:`, phvResults);
           
           parsedData.push({
             name,
@@ -214,6 +234,8 @@ export default function PHVDashboard() {
             ...phvResults
           });
         }
+        
+        console.log(`Łącznie sparsowanych zawodników: ${parsedData.length}`);
         
         if (parsedData.length === 0) {
           console.log(`${method.name} - brak danych po parsowaniu`);
