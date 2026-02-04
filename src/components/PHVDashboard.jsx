@@ -85,11 +85,22 @@ export default function PHVDashboard() {
   };
 
   const normalizeText = (text) => {
+    if (!text) return '';
     return text
       .toLowerCase()
+      .trim()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\u0300-\u036f]/g, '') // usuń diakrytykę
       .replace(/ł/g, 'l')
+      .replace(/ó/g, 'o')
+      .replace(/ś/g, 's')
+      .replace(/ć/g, 'c')
+      .replace(/ń/g, 'n')
+      .replace(/ź/g, 'z')
+      .replace(/ż/g, 'z')
+      .replace(/ę/g, 'e')
+      .replace(/ą/g, 'a')
+      .replace(/\s+/g, ' ') // sprowadź wiele spacji do jednej
       .trim();
   };
 
@@ -157,7 +168,7 @@ export default function PHVDashboard() {
         
         console.log(`Załadowano ${mapping.size} mapowań zawodnik-drużyna`);
         setTeamMapping(mapping);
-        return true;
+        return mapping;
         
       } catch (err) {
         console.error(`${method.name} - błąd:`, err);
@@ -166,12 +177,14 @@ export default function PHVDashboard() {
     }
     
     console.warn('Nie udało się pobrać mapowania drużyn');
-    return false;
+    return new Map();
   };
 
-  const fetchData = async () => {
+  const fetchData = async (teamMappingParam) => {
     setLoading(true);
     setError('');
+    
+    const currentTeamMapping = teamMappingParam || teamMapping;
     
     const methods = [
       {
@@ -289,7 +302,7 @@ export default function PHVDashboard() {
           
           // Przypisanie drużyny na podstawie mapowania
           const normalizedName = normalizeText(name);
-          const team = teamMapping.get(normalizedName) || 'Brak drużyny';
+          const team = currentTeamMapping.get(normalizedName) || 'Brak drużyny';
           
           console.log(`Zawodnik: ${name}, Drużyna: ${team}, Płeć: ${gender} (domyślna), Wzrost: ${height}, Masa: ${weight}, Wys.siedz: ${sittingHeight}`);
           
@@ -355,11 +368,11 @@ export default function PHVDashboard() {
 
   useEffect(() => {
     const loadData = async () => {
-      await fetchTeamMapping();
-      await fetchData();
+      const mapping = await fetchTeamMapping();
+      await fetchData(mapping);
     };
     loadData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(() => fetchData(teamMapping), 30000);
     return () => clearInterval(interval);
   }, []);
 
