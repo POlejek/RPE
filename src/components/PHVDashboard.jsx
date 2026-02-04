@@ -87,12 +87,20 @@ export default function PHVDashboard() {
     
     const methods = [
       {
-        name: `Export CSV (arkusz PHV zbiorcze - GID=${SHEET_GID})`,
+        name: `Export CSV (arkusz PHV - GID=${SHEET_GID})`,
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
       },
       {
         name: `CORS Proxy (GID=${SHEET_GID})`,
         url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`)}`
+      },
+      {
+        name: `Export CSV (domyślny)`,
+        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
+      },
+      {
+        name: 'CORS Proxy (domyślny)',
+        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`)}`
       }
     ];
     
@@ -102,7 +110,11 @@ export default function PHVDashboard() {
       try {
         console.log(`Próbuję metodę: ${method.name}`);
         
-        const response = await fetch(method.url);
+        const response = await fetch(method.url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
         
         if (!response.ok) {
           console.log(`${method.name} - błąd HTTP: ${response.status}`);
@@ -110,6 +122,8 @@ export default function PHVDashboard() {
         }
         
         const csvText = await response.text();
+        
+        console.log(`${method.name} - Pierwsze 200 znaków odpowiedzi:`, csvText.substring(0, 200));
         
         if (!csvText || csvText.trim().length === 0) {
           console.log(`${method.name} - pusta odpowiedź`);
