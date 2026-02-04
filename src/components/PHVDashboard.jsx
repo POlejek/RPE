@@ -5,6 +5,7 @@ import { Users, TrendingUp, Activity, RefreshCw, AlertCircle, CheckCircle, Downl
 export default function PHVDashboard() {
   const SHEET_ID = '1w0gwkeDLWh1rSkz-PWxnA9uB_43Fn7z52wmtQh70z34';
   const SHEET_GID = '1571847888'; // GID dla zakładki "PHV zbiorcze"
+  const SHEET_NAME = 'PHV zbiorcze'; // Nazwa zakładki
   
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -86,6 +87,10 @@ export default function PHVDashboard() {
     setError('');
     
     const methods = [
+      {
+        name: `Export CSV po nazwie (${SHEET_NAME})`,
+        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`
+      },
       {
         name: `Export CSV (arkusz PHV - GID=${SHEET_GID})`,
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
