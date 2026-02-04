@@ -29,20 +29,30 @@ export default function MonitoringObciazen() {
         name: `Export CSV (arkusz Response - GID=${SHEET_GID})`,
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
       },
-      // Metoda 2: CORS Proxy z GID
+      // Metoda 2: CORS Proxy corsproxy.io z GID
       {
-        name: `CORS Proxy (GID=${SHEET_GID})`,
-        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`)}`
+        name: `CORS Proxy corsproxy.io (GID=${SHEET_GID})`,
+        url: `https://corsproxy.io/?${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`)}`
       },
-      // Metoda 3: Export CSV bez GID (fallback)
+      // Metoda 3: CORS Proxy cors.sh z GID
+      {
+        name: `CORS Proxy cors.sh (GID=${SHEET_GID})`,
+        url: `https://cors.sh/https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
+      },
+      // Metoda 4: Export CSV bez GID (fallback)
       {
         name: `Export CSV (domyślny)`,
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
       },
-      // Metoda 4: CORS Proxy bez GID
+      // Metoda 5: CORS Proxy corsproxy.io bez GID
       {
-        name: 'CORS Proxy (domyślny)',
-        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`)}`
+        name: 'CORS Proxy corsproxy.io (domyślny)',
+        url: `https://corsproxy.io/?${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`)}`
+      },
+      // Metoda 6: CORS Proxy cors.sh bez GID
+      {
+        name: 'CORS Proxy cors.sh (domyślny)',
+        url: `https://cors.sh/https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
       }
     ];
     

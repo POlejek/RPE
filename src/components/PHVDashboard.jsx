@@ -91,16 +91,24 @@ export default function PHVDashboard() {
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
       },
       {
-        name: `CORS Proxy (GID=${SHEET_GID})`,
-        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`)}`
+        name: `CORS Proxy corsproxy.io (GID=${SHEET_GID})`,
+        url: `https://corsproxy.io/?${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`)}`
+      },
+      {
+        name: `CORS Proxy cors.sh (GID=${SHEET_GID})`,
+        url: `https://cors.sh/https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
       },
       {
         name: `Export CSV (domyślny)`,
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
       },
       {
-        name: 'CORS Proxy (domyślny)',
-        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`)}`
+        name: 'CORS Proxy corsproxy.io (domyślny)',
+        url: `https://corsproxy.io/?${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`)}`
+      },
+      {
+        name: 'CORS Proxy cors.sh (domyślny)',
+        url: `https://cors.sh/https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
       }
     ];
     
