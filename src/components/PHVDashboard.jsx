@@ -285,9 +285,9 @@ export default function PHVDashboard() {
   };
 
   const phaseChartData = [
-    { name: 'PRE-PHV', value: stats.prePHV, color: '#4CAF50' },
-    { name: 'CIRCA-PHV', value: stats.circaPHV, color: '#FF9800' },
-    { name: 'POST-PHV', value: stats.postPHV, color: '#2196F3' }
+    { name: 'PRE-PHV', value: stats.prePHV, color: '#10b981' }, // Zielony jaśniejszy
+    { name: 'CIRCA-PHV', value: stats.circaPHV, color: '#f97316' }, // Pomarańczowy ciemniejszy
+    { name: 'POST-PHV', value: stats.postPHV, color: '#3b82f6' } // Niebieski ciemniejszy
   ];
 
   const scatterData = filteredData.map(p => ({
@@ -295,6 +295,14 @@ export default function PHVDashboard() {
     y: p.biologicalAge,
     name: p.name
   }));
+  
+  // Dane do linii referencyjnej (wiek biologiczny = wiek kalendarzowy)
+  const minAge = Math.min(...scatterData.map(p => p.x), 8);
+  const maxAge = Math.max(...scatterData.map(p => p.x), 18);
+  const referenceLine = [
+    { x: minAge, y: minAge },
+    { x: maxAge, y: maxAge }
+  ];
 
   const exportToCSV = () => {
     let csv = 'Imię i nazwisko,Płeć,Wiek kalendarzowy,Wzrost,Masa,Offset PHV,Faza,Wiek PHV,Wiek biologiczny\n';
@@ -457,7 +465,7 @@ export default function PHVDashboard() {
               
               <div className="bg-white rounded-lg shadow-lg p-4">
                 <div className="text-xs md:text-sm text-gray-600">CIRCA-PHV</div>
-                <div className="text-xl md:text-2xl font-bold text-orange-600">{stats.circaPHV}</div>
+                <div className="text-xl md:text-2xl font-bold" style={{ color: '#f97316' }}>{stats.circaPHV}</div>
                 <div className="text-xs text-gray-500">{stats.total > 0 ? ((stats.circaPHV/stats.total)*100).toFixed(0) : 0}%</div>
               </div>
               
@@ -513,17 +521,19 @@ export default function PHVDashboard() {
                 </h2>
                 <ResponsiveContainer width="100%" height={300}>
                   <ScatterChart>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis 
                       type="number" 
                       dataKey="x" 
                       name="Wiek kalendarzowy"
+                      domain={[minAge - 1, maxAge + 1]}
                       label={{ value: 'Wiek kalendarzowy (lata)', position: 'insideBottom', offset: -5 }}
                     />
                     <YAxis 
                       type="number" 
                       dataKey="y" 
                       name="Wiek biologiczny"
+                      domain={[minAge - 1, maxAge + 1]}
                       label={{ value: 'Wiek biologiczny (lata)', angle: -90, position: 'insideLeft' }}
                     />
                     <Tooltip 
@@ -542,7 +552,14 @@ export default function PHVDashboard() {
                         return null;
                       }}
                     />
-                    <Scatter data={scatterData} fill="#8b5cf6" />
+                    <Scatter name="Zawodnicy" data={scatterData} fill="#8b5cf6" />
+                    <Scatter 
+                      name="Linia równowagi" 
+                      data={referenceLine} 
+                      fill="#dc2626" 
+                      line={{ stroke: '#dc2626', strokeWidth: 2, strokeDasharray: '5 5' }}
+                      shape={() => null}
+                    />
                   </ScatterChart>
                 </ResponsiveContainer>
               </div>
@@ -598,9 +615,9 @@ export default function PHVDashboard() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                            player.phase === 'PRE-PHV' ? 'bg-green-100 text-green-800' :
-                            player.phase === 'CIRCA-PHV' ? 'bg-orange-100 text-orange-800' :
-                            'bg-blue-100 text-blue-800'
+                            player.phase === 'PRE-PHV' ? 'bg-green-200 text-green-900' :
+                            player.phase === 'CIRCA-PHV' ? 'bg-orange-200 text-orange-900' :
+                            'bg-blue-200 text-blue-900'
                           }`}>
                             {player.phase}
                           </span>
@@ -616,17 +633,17 @@ export default function PHVDashboard() {
             <div className="bg-white rounded-lg shadow-lg p-4 md:p-6 mt-6">
               <h2 className="text-lg font-bold text-gray-800 mb-3">📊 O wskaźniku PHV</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="font-bold text-green-800 mb-2">PRE-PHV (przed szczytem)</div>
-                  <div className="text-green-700">Offset &lt; -1.0 lat<br/>Okres przed gwałtownym wzrostem</div>
+                <div className="bg-green-100 p-4 rounded-lg border-2 border-green-300">
+                  <div className="font-bold text-green-900 mb-2">PRE-PHV (przed szczytem)</div>
+                  <div className="text-green-800">Offset &lt; -1.0 lat<br/>Okres przed gwałtownym wzrostem</div>
                 </div>
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <div className="font-bold text-orange-800 mb-2">CIRCA-PHV (w szczycie)</div>
-                  <div className="text-orange-700">Offset -1.0 do +1.0 lat<br/>Okres maksymalnego tempa wzrostu</div>
+                <div className="bg-orange-100 p-4 rounded-lg border-2 border-orange-300">
+                  <div className="font-bold text-orange-900 mb-2">CIRCA-PHV (w szczycie)</div>
+                  <div className="text-orange-800">Offset -1.0 do +1.0 lat<br/>Okres maksymalnego tempa wzrostu</div>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="font-bold text-blue-800 mb-2">POST-PHV (po szczycie)</div>
-                  <div className="text-blue-700">Offset &gt; +1.0 lat<br/>Okres po gwałtownym wzroście</div>
+                <div className="bg-blue-100 p-4 rounded-lg border-2 border-blue-300">
+                  <div className="font-bold text-blue-900 mb-2">POST-PHV (po szczycie)</div>
+                  <div className="text-blue-800">Offset &gt; +1.0 lat<br/>Okres po gwałtownym wzroście</div>
                 </div>
               </div>
               <div className="mt-4 p-3 bg-purple-50 rounded-lg text-xs text-gray-600">
