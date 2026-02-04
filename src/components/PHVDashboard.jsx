@@ -4,7 +4,7 @@ import { Users, TrendingUp, Activity, RefreshCw, AlertCircle, CheckCircle, Downl
 
 export default function PHVDashboard() {
   const SHEET_ID = '1w0gwkeDLWh1rSkz-PWxnA9uB_43Fn7z52wmtQh70z34';
-  const SHEET_GID = '0'; // GID dla zakładki "PHV zbiorcze" - trzeba będzie zaktualizować
+  const SHEET_GID = '1571847888'; // GID dla zakładki "PHV zbiorcze"
   
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
