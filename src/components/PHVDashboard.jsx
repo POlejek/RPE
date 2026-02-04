@@ -181,26 +181,26 @@ export default function PHVDashboard() {
           
           console.log(`Linia ${i}: Kolumny =`, cleanColumns);
           
-          // Struktura: Imię i Nazwisko, Płeć, Data urodzenia, Data pomiaru, Wzrost (cm), Masa (kg), Wysokość siedząca (cm)
-          if (cleanColumns.length < 7) {
+          // Struktura: Sygnatura czasowa, Imię i Nazwisko, Wzrost (cm), Masa (kg), Wzrost siedzący (cm), Data urodzenia
+          if (cleanColumns.length < 6) {
             console.log(`Pominięto linię ${i} - za mało kolumn (${cleanColumns.length})`);
             continue;
           }
           
-          const name = cleanColumns[0];
+          const measurementDate = cleanColumns[0]; // Sygnatura czasowa
+          const name = cleanColumns[1]; // Imię i nazwisko
           if (!name || name.toLowerCase().includes('imię') || name === '') {
             console.log(`Pominięto linię ${i} - nagłówek lub puste nazwisko`);
             continue;
           }
           
-          const gender = cleanColumns[1];
-          const birthDate = cleanColumns[2];
-          const measurementDate = cleanColumns[3];
-          const height = parseFloat(cleanColumns[4]) || 0;
-          const weight = parseFloat(cleanColumns[5]) || 0;
-          const sittingHeight = parseFloat(cleanColumns[6]) || 0;
+          const height = parseFloat(cleanColumns[2]) || 0; // Wzrost całkowity
+          const weight = parseFloat(cleanColumns[3]) || 0; // Masa ciała
+          const sittingHeight = parseFloat(cleanColumns[4]) || 0; // Wzrost siedzący
+          const birthDate = cleanColumns[5]; // Data urodzenia
+          const gender = 'Chłopiec'; // Domyślna płeć
           
-          console.log(`Zawodnik: ${name}, Płeć: ${gender}, Wzrost: ${height}, Masa: ${weight}, Wys.siedz: ${sittingHeight}`);
+          console.log(`Zawodnik: ${name}, Płeć: ${gender} (domyślna), Wzrost: ${height}, Masa: ${weight}, Wys.siedz: ${sittingHeight}`);
           
           if (height === 0 || weight === 0 || sittingHeight === 0) {
             console.log(`Pominięto linię ${i} - brak pomiarów`);
