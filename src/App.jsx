@@ -1,11 +1,11 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import MonitoringObciazen from './components/MonitoringObciazen'
 import PHVDashboard from './components/PHVDashboard'
 import { Activity, Users } from 'lucide-react'
 
 function App() {
   return (
-    <Router basename="/RPE">
+    <Router>
       <div className="min-h-screen bg-gray-50">
         <nav className="bg-white shadow-lg sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4">
