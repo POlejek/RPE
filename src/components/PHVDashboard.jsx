@@ -605,11 +605,11 @@ export default function PHVDashboard() {
                             {player.gender === 'Chłopiec' ? '♂' : '♀'} {player.gender}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-center">{player.chronologicalAge.toFixed(1)}</td>
-                        <td className="px-4 py-3 text-center">{player.height.toFixed(1)} cm</td>
-                        <td className="px-4 py-3 text-center">{player.weight.toFixed(1)} kg</td>
+                        <td className="px-4 py-3 text-center font-semibold text-gray-800">{player.chronologicalAge.toFixed(1)}</td>
+                        <td className="px-4 py-3 text-center font-semibold text-gray-800">{player.height.toFixed(1)} cm</td>
+                        <td className="px-4 py-3 text-center font-semibold text-gray-800">{player.weight.toFixed(1)} kg</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={player.maturityOffset > 0 ? 'text-green-600' : 'text-red-600'}>
+                          <span className={player.maturityOffset > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
                             {player.maturityOffset > 0 ? '+' : ''}{player.maturityOffset.toFixed(2)}
                           </span>
                         </td>
@@ -622,7 +622,7 @@ export default function PHVDashboard() {
                             {player.phase}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-center">{player.phvAge.toFixed(1)}</td>
+                        <td className="px-4 py-3 text-center font-semibold text-gray-800">{player.phvAge.toFixed(1)}</td>
                       </tr>
                     ))}
                   </tbody>
