@@ -6,8 +6,10 @@ export default function PHVDashboard() {
   const SHEET_ID = '1w0gwkeDLWh1rSkz-PWxnA9uB_43Fn7z52wmtQh70z34';
   const SHEET_GID = '1571847888'; // GID dla zakładki "PHV zbiorcze"
   const SHEET_NAME = 'PHV zbiorcze'; // Nazwa zakładki
+  const TEAM_GID = '1626032577'; // GID dla zakładki "Zawodnicy"
   
   const [data, setData] = useState([]);
+  const [teamMapping, setTeamMapping] = useState(new Map()); // Mapowanie nazwisko -> drużyna
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -15,7 +17,7 @@ export default function PHVDashboard() {
   
   // Filtry
   const [filterPhase, setFilterPhase] = useState('');
-  const [filterGender, setFilterGender] = useState('');
+  const [filterTeam, setFilterTeam] = useState('');
   const [filterAgeMin, setFilterAgeMin] = useState('');
   const [filterAgeMax, setFilterAgeMax] = useState('');
 
@@ -80,6 +82,91 @@ export default function PHVDashboard() {
     const diffMs = measurement - birth;
     const ageDate = new Date(diffMs);
     return Math.abs(ageDate.getUTCFullYear() - 1970) + (ageDate.getUTCMonth() / 12);
+  };
+
+  const normalizeText = (text) => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ł/g, 'l')
+      .trim();
+  };
+
+  const fetchTeamMapping = async () => {
+    const methods = [
+      {
+        name: `Export CSV zawodnicy (GID=${TEAM_GID})`,
+        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${TEAM_GID}`
+      },
+      {
+        name: `Google Sheets gviz zawodnicy (GID=${TEAM_GID})`,
+        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${TEAM_GID}`
+      }
+    ];
+
+    for (const method of methods) {
+      try {
+        console.log(`Pobieranie mapowania drużyn: ${method.name}`);
+        const response = await fetch(method.url);
+        
+        if (!response.ok) continue;
+        
+        const csvText = await response.text();
+        if (!csvText || csvText.includes('<!DOCTYPE html>')) continue;
+        
+        const lines = csvText.split('\n').filter(line => line.trim());
+        if (lines.length < 2) continue;
+        
+        const mapping = new Map();
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const columns = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              columns.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          columns.push(current.trim());
+          
+          const cleanColumns = columns.map(col => col.replace(/^"|"$/g, ''));
+          
+          // Struktura: Nazwisko | Drużyna
+          if (cleanColumns.length >= 2) {
+            const name = cleanColumns[0];
+            const team = cleanColumns[1];
+            if (name && team && !name.toLowerCase().includes('nazwisko')) {
+              const normalizedName = normalizeText(name);
+              mapping.set(normalizedName, team);
+              console.log(`Mapowanie: ${name} -> ${team}`);
+            }
+          }
+        }
+        
+        console.log(`Załadowano ${mapping.size} mapowań zawodnik-drużyna`);
+        setTeamMapping(mapping);
+        return true;
+        
+      } catch (err) {
+        console.error(`${method.name} - błąd:`, err);
+        continue;
+      }
+    }
+    
+    console.warn('Nie udało się pobrać mapowania drużyn');
+    return false;
   };
 
   const fetchData = async () => {
@@ -200,7 +287,11 @@ export default function PHVDashboard() {
           const birthDate = cleanColumns[5]; // Data urodzenia
           const gender = 'Chłopiec'; // Domyślna płeć
           
-          console.log(`Zawodnik: ${name}, Płeć: ${gender} (domyślna), Wzrost: ${height}, Masa: ${weight}, Wys.siedz: ${sittingHeight}`);
+          // Przypisanie drużyny na podstawie mapowania
+          const normalizedName = normalizeText(name);
+          const team = teamMapping.get(normalizedName) || 'Brak drużyny';
+          
+          console.log(`Zawodnik: ${name}, Drużyna: ${team}, Płeć: ${gender} (domyślna), Wzrost: ${height}, Masa: ${weight}, Wys.siedz: ${sittingHeight}`);
           
           if (height === 0 || weight === 0 || sittingHeight === 0) {
             console.log(`Pominięto linię ${i} - brak pomiarów`);
@@ -223,6 +314,7 @@ export default function PHVDashboard() {
           
           parsedData.push({
             name,
+            team,
             gender,
             birthDate,
             measurementDate,
@@ -262,14 +354,18 @@ export default function PHVDashboard() {
   };
 
   useEffect(() => {
-    fetchData();
+    const loadData = async () => {
+      await fetchTeamMapping();
+      await fetchData();
+    };
+    loadData();
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const filteredData = data.filter(player => {
     if (filterPhase && player.phase !== filterPhase) return false;
-    if (filterGender && player.gender !== filterGender) return false;
+    if (filterTeam && player.team !== filterTeam) return false;
     if (filterAgeMin && player.chronologicalAge < parseFloat(filterAgeMin)) return false;
     if (filterAgeMax && player.chronologicalAge > parseFloat(filterAgeMax)) return false;
     return true;
@@ -305,10 +401,10 @@ export default function PHVDashboard() {
   ];
 
   const exportToCSV = () => {
-    let csv = 'Imię i nazwisko,Płeć,Wiek kalendarzowy,Wzrost,Masa,Offset PHV,Faza,Wiek PHV,Wiek biologiczny\n';
+    let csv = 'Imię i nazwisko,Drużyna,Wiek kalendarzowy,Wzrost,Masa,Offset PHV,Faza,Wiek PHV,Wiek biologiczny\n';
     
     filteredData.forEach(player => {
-      csv += `"${player.name}","${player.gender}",${player.chronologicalAge.toFixed(1)},${player.height.toFixed(1)},${player.weight.toFixed(1)},${player.maturityOffset.toFixed(2)},"${player.phase}",${player.phvAge.toFixed(1)},${player.biologicalAge.toFixed(1)}\n`;
+      csv += `"${player.name}","${player.team}",${player.chronologicalAge.toFixed(1)},${player.height.toFixed(1)},${player.weight.toFixed(1)},${player.maturityOffset.toFixed(2)},"${player.phase}",${player.phvAge.toFixed(1)},${player.biologicalAge.toFixed(1)}\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -321,7 +417,7 @@ export default function PHVDashboard() {
 
   const clearFilters = () => {
     setFilterPhase('');
-    setFilterGender('');
+    setFilterTeam('');
     setFilterAgeMin('');
     setFilterAgeMax('');
   };
@@ -406,15 +502,16 @@ export default function PHVDashboard() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Płeć</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Drużyna</label>
                   <select
-                    value={filterGender}
-                    onChange={(e) => setFilterGender(e.target.value)}
+                    value={filterTeam}
+                    onChange={(e) => setFilterTeam(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   >
-                    <option value="">Wszyscy</option>
-                    <option value="Chłopiec">Chłopcy</option>
-                    <option value="Dziewczynka">Dziewczynki</option>
+                    <option value="">Wszystkie drużyny</option>
+                    {[...new Set(data.map(p => p.team))].sort().map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
                   </select>
                 </div>
                 
@@ -441,7 +538,7 @@ export default function PHVDashboard() {
                 </div>
               </div>
               
-              {(filterPhase || filterGender || filterAgeMin || filterAgeMax) && (
+              {(filterPhase || filterTeam || filterAgeMin || filterAgeMax) && (
                 <button
                   onClick={clearFilters}
                   className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
@@ -584,7 +681,7 @@ export default function PHVDashboard() {
                   <thead className="bg-gradient-to-r from-purple-50 to-pink-50">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Zawodnik</th>
-                      <th className="px-4 py-3 text-center font-semibold text-gray-700">Płeć</th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700">Drużyna</th>
                       <th className="px-4 py-3 text-center font-semibold text-gray-700">Wiek</th>
                       <th className="px-4 py-3 text-center font-semibold text-gray-700">Wzrost</th>
                       <th className="px-4 py-3 text-center font-semibold text-gray-700">Masa</th>
@@ -600,10 +697,8 @@ export default function PHVDashboard() {
                         className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-purple-50 transition-colors`}
                       >
                         <td className="px-4 py-3 font-semibold text-gray-800">{player.name}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={player.gender === 'Chłopiec' ? 'text-blue-600' : 'text-pink-600'}>
-                            {player.gender === 'Chłopiec' ? '♂' : '♀'} {player.gender}
-                          </span>
+                        <td className="px-4 py-3 text-center text-purple-700 font-semibold">
+                          {player.team}
                         </td>
                         <td className="px-4 py-3 text-center font-semibold text-gray-800">{player.chronologicalAge.toFixed(1)}</td>
                         <td className="px-4 py-3 text-center font-semibold text-gray-800">{player.height.toFixed(1)} cm</td>
