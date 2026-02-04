@@ -29,25 +29,25 @@ export default function MonitoringObciazen() {
         name: `Export CSV (arkusz Response - GID=${SHEET_GID})`,
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
       },
-      // Metoda 2: ThingProxy z GID
+      // Metoda 2: Google Sheets gviz z GID
       {
-        name: `ThingProxy (GID=${SHEET_GID})`,
-        url: `https://thingproxy.freeboard.io/fetch/https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
+        name: `Google Sheets gviz (GID=${SHEET_GID})`,
+        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`
       },
-      // Metoda 3: CORS Anywhere z GID
+      // Metoda 3: AllOrigins z GID
       {
-        name: `CORS Anywhere Heroku (GID=${SHEET_GID})`,
-        url: `https://cors-anywhere.herokuapp.com/https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
+        name: `AllOrigins API (GID=${SHEET_GID})`,
+        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`)}`
       },
       // Metoda 4: Export CSV bez GID (fallback)
       {
         name: `Export CSV (domyślny)`,
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
       },
-      // Metoda 5: ThingProxy bez GID
+      // Metoda 5: Google Sheets gviz bez GID
       {
-        name: 'ThingProxy (domyślny)',
-        url: `https://thingproxy.freeboard.io/fetch/https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
+        name: 'Google Sheets gviz (domyślny)',
+        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`
       }
     ];
     
