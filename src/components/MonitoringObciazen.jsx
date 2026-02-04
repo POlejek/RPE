@@ -429,8 +429,11 @@ export default function MonitoringObciazen() {
     return date.getDay() === 1; // poniedziałek
   });
 
+  // Zliczaj unikalne dni treningowe zamiast indywidualnych sesji
+  const uniqueTrainingDays = new Set(filteredData.map(d => parseDate(d.data)).filter(Boolean)).size;
+  
   const stats = {
-    totalSessions: filteredData.length,
+    totalSessions: uniqueTrainingDays, // Teraz to liczba dni treningowych, nie sesji
     avgRPE: filteredData.length > 0 ? (filteredData.reduce((sum, d) => sum + d.rpe, 0) / filteredData.length).toFixed(1) : 0,
     totalLoad: Math.round(filteredData.reduce((sum, d) => sum + d.obciazenie, 0)),
     avgMinutes: filteredData.length > 0 ? Math.round(filteredData.reduce((sum, d) => sum + d.minuty, 0) / filteredData.length) : 0
