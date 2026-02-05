@@ -21,6 +21,8 @@ export default function MonitoringObciazen() {
   const [timePreset, setTimePreset] = useState('currentWeek'); // Nowy state dla predefiniowanych filtrów
   const [phvMap, setPhvMap] = useState(new Map());
   const [recommendedWeeklySRPE, setRecommendedWeeklySRPE] = useState(2300);
+  const [selectedPhvPhase, setSelectedPhvPhase] = useState('wszystkie');
+  const [sortConfig, setSortConfig] = useState({ key: 'calkowiteObciazenie', direction: 'desc' });
 
   const fetchData = async () => {
     setLoading(true);
@@ -524,8 +526,16 @@ export default function MonitoringObciazen() {
   const filteredByTeam = selectedTeam === 'wszystkie'
     ? filteredByPlayer
     : filteredByPlayer.filter(d => d.druzyna === selectedTeam);
+
+  const filteredByPhv = selectedPhvPhase === 'wszystkie'
+    ? filteredByTeam
+    : filteredByTeam.filter(d => {
+        const normalized = d.nazwiskoNormalized || normalizeText(d.nazwisko);
+        const phvPhase = phvMap.get(normalized)?.phase || 'Brak';
+        return selectedPhvPhase === 'Brak' ? phvPhase === 'Brak' : phvPhase === selectedPhvPhase;
+      });
   
-  const filteredData = filterDataByPeriod(filteredByTeam);
+  const filteredData = filterDataByPeriod(filteredByPhv);
   
   // Grupuj zawodników po znormalizowanych nazwiskach (bez duplikatów TEST, Test, test)
   // Filtruj zawodników po wybranej drużynie
@@ -636,6 +646,41 @@ export default function MonitoringObciazen() {
     avgMinutes: filteredData.length > 0 ? Math.round(filteredData.reduce((sum, d) => sum + d.minuty, 0) / filteredData.length) : 0
   };
 
+  const phvOrder = {
+    Pre: 1,
+    Circa: 2,
+    Post: 3,
+    Brak: 4
+  };
+
+  const getSortValue = (player, key) => {
+    switch (key) {
+      case 'nazwisko':
+        return player.nazwisko.toLowerCase();
+      case 'phvPhase':
+        return phvOrder[player.phvPhase] || 99;
+      case 'sredniaRPE':
+      case 'srednieObciazenie':
+      case 'srednieTygodnioweObciazenie':
+      case 'rekomendowaneSRPE':
+      case 'percentVsRecommended':
+      case 'calkowiteObciazenie':
+      case 'liczbaSesji':
+        return player[key] ?? -Infinity;
+      default:
+        return player[key];
+    }
+  };
+
+  const handleSort = (key) => {
+    setSortConfig(prev => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'desc' };
+    });
+  };
+
   const playerComparison = players.filter(p => p !== 'wszyscy').map(player => {
     const playerNormalized = normalizeText(player);
     // Używamy filteredData zamiast data, aby uwzględnić filtr czasowy
@@ -670,7 +715,22 @@ export default function MonitoringObciazen() {
       rekomendowaneSRPE: recommendedWeeklySRPE,
       percentVsRecommended: percentVsRecommended === null ? null : Math.round(percentVsRecommended)
     };
-  }).sort((a, b) => b.calkowiteObciazenie - a.calkowiteObciazenie);
+  });
+
+  const sortedPlayerComparison = [...playerComparison].sort((a, b) => {
+    const aValue = getSortValue(a, sortConfig.key);
+    const bValue = getSortValue(b, sortConfig.key);
+
+    if (aValue === bValue) {
+      return a.nazwisko.localeCompare(b.nazwisko, 'pl');
+    }
+
+    if (sortConfig.direction === 'asc') {
+      return aValue > bValue ? 1 : -1;
+    }
+
+    return aValue < bValue ? 1 : -1;
+  });
 
   const playerLoadOverTime = (() => {
     // Przygotuj wszystkie dostępne daty z wszystkich danych
@@ -999,7 +1059,7 @@ export default function MonitoringObciazen() {
         {data.length > 0 && (
           <>
             <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Users className="inline w-4 h-4 mr-1" />
@@ -1035,6 +1095,26 @@ export default function MonitoringObciazen() {
                           className="rounded text-indigo-600 focus:ring-indigo-500"
                         />
                         <span>{team === 'wszystkie' ? '🌐 Wszystkie drużyny' : `🏆 ${team}`}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🧬 PHV:
+                  </label>
+                  <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                    {['wszystkie', 'Pre', 'Circa', 'Post', 'Brak'].map(phase => (
+                      <label key={phase} className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="radio"
+                          name="phvPhase"
+                          checked={selectedPhvPhase === phase}
+                          onChange={() => setSelectedPhvPhase(phase)}
+                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>{phase === 'wszystkie' ? '🌐 Wszystkie fazy' : phase}</span>
                       </label>
                     ))}
                   </div>
@@ -1386,19 +1466,39 @@ export default function MonitoringObciazen() {
                   <table className="w-full text-sm">
                     <thead className="bg-gradient-to-r from-indigo-50 to-purple-50">
                       <tr>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Zawodnik</th>
-                        <th className="px-4 py-3 text-center font-semibold text-gray-700">PHV</th>
-                        <th className="px-4 py-3 text-center font-semibold text-gray-700">Sesje</th>
-                        <th className="px-4 py-3 text-center font-semibold text-gray-700">Śr. RPE</th>
-                        <th className="px-4 py-3 text-center font-semibold text-gray-700">Śr. obciąż.</th>
-                        <th className="px-4 py-3 text-center font-semibold text-gray-700">Śr. tyg. obciąż.</th>
-                        <th className="px-4 py-3 text-center font-semibold text-gray-700">Rekom. sRPE</th>
-                        <th className="px-4 py-3 text-center font-semibold text-gray-700">% vs rekom.</th>
-                        <th className="px-4 py-3 text-center font-semibold text-gray-700">Całk. obciąż.</th>
+                        {[
+                          { key: 'nazwisko', label: 'Zawodnik', align: 'text-left' },
+                          { key: 'phvPhase', label: 'PHV', align: 'text-center' },
+                          { key: 'liczbaSesji', label: 'Sesje', align: 'text-center' },
+                          { key: 'sredniaRPE', label: 'Śr. RPE', align: 'text-center' },
+                          { key: 'srednieObciazenie', label: 'Śr. obciąż.', align: 'text-center' },
+                          { key: 'srednieTygodnioweObciazenie', label: 'Śr. tyg. obciąż.', align: 'text-center' },
+                          { key: 'rekomendowaneSRPE', label: 'Rekom. sRPE', align: 'text-center' },
+                          { key: 'percentVsRecommended', label: '% vs rekom.', align: 'text-center' },
+                          { key: 'calkowiteObciazenie', label: 'Całk. obciąż.', align: 'text-center' }
+                        ].map(column => (
+                          <th
+                            key={column.key}
+                            className={`px-4 py-3 font-semibold text-gray-700 ${column.align}`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleSort(column.key)}
+                              className="inline-flex items-center gap-1 hover:text-indigo-700"
+                            >
+                              <span>{column.label}</span>
+                              <span className="text-xs">
+                                {sortConfig.key === column.key
+                                  ? (sortConfig.direction === 'asc' ? '▲' : '▼')
+                                  : '↕'}
+                              </span>
+                            </button>
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {playerComparison.map((player, idx) => (
+                      {sortedPlayerComparison.map((player, idx) => (
                         <tr 
                           key={player.nazwisko} 
                           className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-indigo-50 transition-colors`}
