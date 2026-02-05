@@ -23,6 +23,7 @@ export default function MonitoringObciazen() {
   const [recommendedWeeklySRPE, setRecommendedWeeklySRPE] = useState(2300);
   const [selectedPhvPhase, setSelectedPhvPhase] = useState('wszystkie');
   const [sortConfig, setSortConfig] = useState({ key: 'calkowiteObciazenie', direction: 'desc' });
+  const [selectedSessionCount, setSelectedSessionCount] = useState('wszystkie');
 
   const fetchData = async () => {
     setLoading(true);
@@ -717,7 +718,14 @@ export default function MonitoringObciazen() {
     };
   });
 
-  const sortedPlayerComparison = [...playerComparison].sort((a, b) => {
+  const sessionCountOptions = Array.from(new Set(playerComparison.map(player => player.liczbaSesji)))
+    .sort((a, b) => a - b);
+
+  const filteredPlayerComparison = selectedSessionCount === 'wszystkie'
+    ? playerComparison
+    : playerComparison.filter(player => player.liczbaSesji === Number(selectedSessionCount));
+
+  const sortedPlayerComparison = [...filteredPlayerComparison].sort((a, b) => {
     const aValue = getSortValue(a, sortConfig.key);
     const bValue = getSortValue(b, sortConfig.key);
 
@@ -1059,7 +1067,7 @@ export default function MonitoringObciazen() {
         {data.length > 0 && (
           <>
             <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Users className="inline w-4 h-4 mr-1" />
@@ -1118,6 +1126,24 @@ export default function MonitoringObciazen() {
                       </label>
                     ))}
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🎯 Liczba sesji:
+                  </label>
+                  <select
+                    value={selectedSessionCount}
+                    onChange={(event) => setSelectedSessionCount(event.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  >
+                    <option value="wszystkie">Wszystkie</option>
+                    {sessionCountOptions.map(count => (
+                      <option key={count} value={String(count)}>
+                        {count} sesji
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 
                 <div>
@@ -1440,7 +1466,7 @@ export default function MonitoringObciazen() {
               </div>
             )}
 
-            {selectedPlayers.includes('wszyscy') && playerComparison.length > 0 && (
+            {selectedPlayers.includes('wszyscy') && sortedPlayerComparison.length > 0 && (
               <div className="bg-white rounded-lg shadow-lg p-4 md:p-6 mb-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                   <h2 className="text-lg md:text-xl font-bold text-gray-800">
@@ -1546,7 +1572,7 @@ export default function MonitoringObciazen() {
                 </div>
                 
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={playerComparison}>
+                    <BarChart data={sortedPlayerComparison}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis 
                       dataKey="nazwisko" 
@@ -1567,11 +1593,11 @@ export default function MonitoringObciazen() {
                       radius={[8, 8, 0, 0]}
                     >
                       {(() => {
-                        const avgLoad = playerComparison.length > 0 
-                          ? playerComparison.reduce((sum, p) => sum + p.calkowiteObciazenie, 0) / playerComparison.length
+                        const avgLoad = sortedPlayerComparison.length > 0 
+                          ? sortedPlayerComparison.reduce((sum, p) => sum + p.calkowiteObciazenie, 0) / sortedPlayerComparison.length
                           : 0;
                         
-                        return playerComparison.map((entry, index) => {
+                        return sortedPlayerComparison.map((entry, index) => {
                           const diff = entry.calkowiteObciazenie - avgLoad;
                           const percentDiff = (diff / avgLoad) * 100;
                           
@@ -1589,8 +1615,8 @@ export default function MonitoringObciazen() {
                       })()}
                     </Bar>
                     {(() => {
-                      const avgLoad = playerComparison.length > 0 
-                        ? Math.round(playerComparison.reduce((sum, p) => sum + p.calkowiteObciazenie, 0) / playerComparison.length)
+                      const avgLoad = sortedPlayerComparison.length > 0 
+                        ? Math.round(sortedPlayerComparison.reduce((sum, p) => sum + p.calkowiteObciazenie, 0) / sortedPlayerComparison.length)
                         : 0;
                       return <ReferenceLine y={avgLoad} stroke="#dc2626" strokeDasharray="5 5" strokeWidth={2} label={{ value: `Średnia: ${avgLoad}`, position: 'top', fill: '#dc2626', fontSize: 12 }} />;
                     })()}
