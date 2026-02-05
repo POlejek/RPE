@@ -535,8 +535,21 @@ export default function MonitoringObciazen() {
         const phvPhase = phvMap.get(normalized)?.phase || 'Brak';
         return selectedPhvPhase === 'Brak' ? phvPhase === 'Brak' : phvPhase === selectedPhvPhase;
       });
-  
-  const filteredData = filterDataByPeriod(filteredByPhv);
+
+  const timeFilteredData = filterDataByPeriod(filteredByPhv);
+
+  const sessionCountMap = timeFilteredData.reduce((acc, item) => {
+    const normalized = item.nazwiskoNormalized || normalizeText(item.nazwisko);
+    acc.set(normalized, (acc.get(normalized) || 0) + 1);
+    return acc;
+  }, new Map());
+
+  const filteredData = selectedSessionCount === 'wszystkie'
+    ? timeFilteredData
+    : timeFilteredData.filter(item => {
+        const normalized = item.nazwiskoNormalized || normalizeText(item.nazwisko);
+        return sessionCountMap.get(normalized) === Number(selectedSessionCount);
+      });
   
   // Grupuj zawodników po znormalizowanych nazwiskach (bez duplikatów TEST, Test, test)
   // Filtruj zawodników po wybranej drużynie
@@ -718,7 +731,7 @@ export default function MonitoringObciazen() {
     };
   });
 
-  const sessionCountOptions = Array.from(new Set(playerComparison.map(player => player.liczbaSesji)))
+  const sessionCountOptions = Array.from(new Set(Array.from(sessionCountMap.values())))
     .sort((a, b) => a - b);
 
   const filteredPlayerComparison = selectedSessionCount === 'wszystkie'
