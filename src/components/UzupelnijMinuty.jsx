@@ -179,16 +179,15 @@ export default function UzupelnijMinuty() {
     updateStatus(row.id, { state: 'saving', message: '' });
 
     try {
+      const payload = new URLSearchParams({
+        name: row.name,
+        trainingDate: row.trainingDate,
+        minutes: String(minutesValue)
+      });
+
       const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: row.name,
-          trainingDate: row.trainingDate,
-          minutes: minutesValue
-        })
+        body: payload
       });
 
       const result = await response.json();
