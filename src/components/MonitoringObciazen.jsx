@@ -854,7 +854,8 @@ export default function MonitoringObciazen() {
           weekLabel: `${weekStart.toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' })} – ${weekEnd.toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' })}`,
           totalObciazenie: 0,
           sesje: 0,
-          sumaRPE: 0
+          sumaRPE: 0,
+          playerTotals: new Map()
         });
       }
       
@@ -862,12 +863,16 @@ export default function MonitoringObciazen() {
       week.totalObciazenie += item.obciazenie;
       week.sesje += 1;
       week.sumaRPE += item.rpe;
+      const playerKey = item.nazwiskoNormalized || normalizeText(item.nazwisko);
+      week.playerTotals.set(playerKey, (week.playerTotals.get(playerKey) || 0) + item.obciazenie);
     });
     
     return Array.from(weekMap.values())
       .map(week => ({
         ...week,
-        srednieObciazenie: week.sesje > 0 ? Math.round(week.totalObciazenie / week.sesje) : 0,
+        srednieObciazenie: week.playerTotals.size > 0
+          ? Math.round(Array.from(week.playerTotals.values()).reduce((sum, value) => sum + value, 0) / week.playerTotals.size)
+          : 0,
         sredniaRPE: week.sesje > 0 ? parseFloat((week.sumaRPE / week.sesje).toFixed(1)) : 0
       }))
       .sort((a, b) => new Date(a.weekKey) - new Date(b.weekKey));
@@ -1600,7 +1605,7 @@ export default function MonitoringObciazen() {
                     <YAxis style={{ fontSize: '12px' }} />
                     <Tooltip 
                       formatter={(value, name) => {
-                        if (name === 'srednieObciazenie') return [value, 'Średnie obciążenie'];
+                        if (name === 'srednieObciazenie') return [value, 'Śr. tyg. obciąż. (avg zawodników)'];
                         if (name === 'sredniaRPE') return [parseFloat(value).toFixed(1), 'Średnia RPE'];
                         if (name === 'sesje') return [value, 'Liczba sesji'];
                         return [value, name];
@@ -1610,7 +1615,7 @@ export default function MonitoringObciazen() {
                     <Legend wrapperStyle={{ fontSize: '14px' }} />
                     <Bar 
                       dataKey="srednieObciazenie" 
-                      name="Średnie obciążenie"
+                      name="Śr. tyg. obciąż."
                       radius={[8, 8, 0, 0]}
                       fill="#8b5cf6"
                     />
@@ -1624,7 +1629,7 @@ export default function MonitoringObciazen() {
                 </ResponsiveContainer>
                 <div className="mt-4 p-4 bg-indigo-50 rounded-lg">
                   <p className="text-sm text-gray-700">
-                    <strong>💡 Porównanie tygodni:</strong> Histogram pokazuje średnie obciążenie treningowe dla każdego tygodnia, co ułatwia identyfikację okresów o wyższym lub niższym obciążeniu. Zielona linia odniesienia pokazuje średnie obciążenie całego okresu.
+                    <strong>💡 Porównanie tygodni:</strong> Histogram pokazuje średnią z "Śr. tyg. obciąż." zawodników w danym tygodniu. Zielona linia odniesienia pokazuje średnią całego okresu.
                   </p>
                 </div>
               </div>
