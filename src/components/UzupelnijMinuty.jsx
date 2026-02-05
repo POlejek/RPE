@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle, RefreshCw, Save, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle, RefreshCw, Save, Trash2, Users } from 'lucide-react';
 
 export default function UzupelnijMinuty() {
   const SHEET_ID = '1w0gwkeDLWh1rSkz-PWxnA9uB_43Fn7z52wmtQh70z34';
@@ -182,6 +182,7 @@ export default function UzupelnijMinuty() {
       const payload = new URLSearchParams({
         name: row.name,
         trainingDate: row.trainingDate,
+        timestamp: row.timestamp,
         minutes: String(minutesValue)
       });
 
@@ -193,6 +194,30 @@ export default function UzupelnijMinuty() {
 
       setRows(prev => prev.filter(item => item.id !== row.id));
       updateStatus(row.id, { state: 'success', message: 'Wyslano do zapisu.' });
+    } catch (err) {
+      updateStatus(row.id, { state: 'error', message: 'Blad polaczenia.' });
+    }
+  };
+
+  const handleDelete = async (row) => {
+    updateStatus(row.id, { state: 'saving', message: '' });
+
+    try {
+      const payload = new URLSearchParams({
+        action: 'delete',
+        name: row.name,
+        trainingDate: row.trainingDate,
+        timestamp: row.timestamp
+      });
+
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: payload
+      });
+
+      setRows(prev => prev.filter(item => item.id !== row.id));
+      updateStatus(row.id, { state: 'success', message: 'Usunieto wpis.' });
     } catch (err) {
       updateStatus(row.id, { state: 'error', message: 'Blad polaczenia.' });
     }
@@ -278,7 +303,7 @@ export default function UzupelnijMinuty() {
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">Data treningu</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">RPE</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">Minuty</th>
-                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Akcja</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Akcje</th>
                 </tr>
               </thead>
               <tbody>
@@ -303,18 +328,28 @@ export default function UzupelnijMinuty() {
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleSave(row)}
-                        className="inline-flex items-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
-                        disabled={saveStatus[row.id]?.state === 'saving'}
-                      >
-                        {saveStatus[row.id]?.state === 'saving' ? (
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Save className="w-4 h-4" />
-                        )}
-                        Zapisz
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleSave(row)}
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
+                          disabled={saveStatus[row.id]?.state === 'saving'}
+                        >
+                          {saveStatus[row.id]?.state === 'saving' ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4" />
+                          )}
+                          Zapisz
+                        </button>
+                        <button
+                          onClick={() => handleDelete(row)}
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                          disabled={saveStatus[row.id]?.state === 'saving'}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Usun
+                        </button>
+                      </div>
                       {saveStatus[row.id]?.state === 'error' && (
                         <div className="text-xs text-red-600 mt-1">{saveStatus[row.id]?.message}</div>
                       )}
