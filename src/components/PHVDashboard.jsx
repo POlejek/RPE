@@ -73,6 +73,22 @@ export default function PHVDashboard() {
     }
   };
 
+  const formatMeasurementDate = (dateObj) => {
+    if (!dateObj) return '-';
+    return new Intl.DateTimeFormat('pl-PL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(dateObj);
+  };
+
+  const isOlderThanSixMonths = (dateObj) => {
+    if (!dateObj) return false;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 6);
+    return dateObj < cutoff;
+  };
+
   const calculateAge = (birthDate, measurementDate) => {
     const birth = parseDate(birthDate);
     const measurement = parseDate(measurementDate) || new Date();
@@ -253,7 +269,7 @@ export default function PHVDashboard() {
         
         console.log(`${method.name} - SUKCES! Liczba linii: ${lines.length}`);
         
-        const parsedData = [];
+        const parsedByName = new Map();
         
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
@@ -325,23 +341,37 @@ export default function PHVDashboard() {
           
           console.log(`PHV Results:`, phvResults);
           
-          parsedData.push({
+          const measurementDateObj = parseDate(measurementDate);
+
+          const nextEntry = {
             name,
             team,
             gender,
             birthDate,
             measurementDate,
+            measurementDateObj,
             height,
             weight,
             sittingHeight,
             legLength,
             chronologicalAge: age,
             ...phvResults
-          });
+          };
+
+          const existing = parsedByName.get(normalizedName);
+          const shouldReplace = !existing ||
+            (measurementDateObj && !existing.measurementDateObj) ||
+            (measurementDateObj && existing.measurementDateObj && measurementDateObj > existing.measurementDateObj);
+
+          if (shouldReplace) {
+            parsedByName.set(normalizedName, nextEntry);
+          }
         }
-        
+
+        const parsedData = Array.from(parsedByName.values());
+
         console.log(`Łącznie sparsowanych zawodników: ${parsedData.length}`);
-        
+
         if (parsedData.length === 0) {
           console.log(`${method.name} - brak danych po parsowaniu`);
           continue;
@@ -414,10 +444,11 @@ export default function PHVDashboard() {
   ];
 
   const exportToCSV = () => {
-    let csv = 'Imię i nazwisko,Drużyna,Wiek kalendarzowy,Wzrost,Masa,Offset PHV,Faza,Wiek PHV,Wiek biologiczny\n';
+    let csv = 'Imię i nazwisko,Drużyna,Wiek kalendarzowy,Wzrost,Masa,Offset PHV,Faza,Wiek PHV,Wiek biologiczny,Data badania\n';
     
     filteredData.forEach(player => {
-      csv += `"${player.name}","${player.team}",${player.chronologicalAge.toFixed(1)},${player.height.toFixed(1)},${player.weight.toFixed(1)},${player.maturityOffset.toFixed(2)},"${player.phase}",${player.phvAge.toFixed(1)},${player.biologicalAge.toFixed(1)}\n`;
+      const measurementDateLabel = formatMeasurementDate(player.measurementDateObj);
+      csv += `"${player.name}","${player.team}",${player.chronologicalAge.toFixed(1)},${player.height.toFixed(1)},${player.weight.toFixed(1)},${player.maturityOffset.toFixed(2)},"${player.phase}",${player.phvAge.toFixed(1)},${player.biologicalAge.toFixed(1)},"${measurementDateLabel}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -701,6 +732,7 @@ export default function PHVDashboard() {
                       <th className="px-4 py-3 text-center font-semibold text-gray-700">Offset PHV</th>
                       <th className="px-4 py-3 text-center font-semibold text-gray-700">Faza</th>
                       <th className="px-4 py-3 text-center font-semibold text-gray-700">Wiek PHV</th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700">Data Badania</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -731,6 +763,9 @@ export default function PHVDashboard() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center font-semibold text-gray-800">{player.phvAge.toFixed(1)}</td>
+                        <td className={`px-4 py-3 text-center font-semibold ${isOlderThanSixMonths(player.measurementDateObj) ? 'text-orange-700 bg-orange-100' : 'text-gray-800'}`}>
+                          {formatMeasurementDate(player.measurementDateObj)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
