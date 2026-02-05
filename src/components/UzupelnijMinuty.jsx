@@ -185,20 +185,14 @@ export default function UzupelnijMinuty() {
         minutes: String(minutesValue)
       });
 
-      const response = await fetch(APPS_SCRIPT_URL, {
+      await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
+        mode: 'no-cors',
         body: payload
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.ok) {
-        updateStatus(row.id, { state: 'error', message: result.error || 'Blad zapisu.' });
-        return;
-      }
-
       setRows(prev => prev.filter(item => item.id !== row.id));
-      updateStatus(row.id, { state: 'success', message: 'Zapisano.' });
+      updateStatus(row.id, { state: 'success', message: 'Wyslano do zapisu.' });
     } catch (err) {
       updateStatus(row.id, { state: 'error', message: 'Blad polaczenia.' });
     }
