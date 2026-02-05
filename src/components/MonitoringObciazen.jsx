@@ -6,6 +6,8 @@ export default function MonitoringObciazen() {
   const SHEET_ID = '1w0gwkeDLWh1rSkz-PWxnA9uB_43Fn7z52wmtQh70z34';
   // GID arkusza Response - główny arkusz łączący wszystkie dane
   const SHEET_GID = '243539768'; // Response - główny arkusz
+  const PHV_SHEET_GID = '1571847888'; // PHV zbiorcze
+  const PHV_SHEET_NAME = 'PHV zbiorcze';
   
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -17,6 +19,8 @@ export default function MonitoringObciazen() {
   const [selectedWeeks, setSelectedWeeks] = useState([]);
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [timePreset, setTimePreset] = useState('currentWeek'); // Nowy state dla predefiniowanych filtrów
+  const [phvMap, setPhvMap] = useState(new Map());
+  const [recommendedWeeklySRPE, setRecommendedWeeklySRPE] = useState(2300);
 
   const fetchData = async () => {
     setLoading(true);
@@ -194,7 +198,11 @@ export default function MonitoringObciazen() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    fetchPhvData();
+    const interval = setInterval(() => {
+      fetchData();
+      fetchPhvData();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -212,6 +220,183 @@ export default function MonitoringObciazen() {
       .replace(/ł/g, 'l')
       .replace(/Ł/g, 'l')
       .trim();
+  };
+
+  const parsePhvDate = (dateStr) => {
+    if (!dateStr) return null;
+    try {
+      const date = new Date(dateStr);
+      return isNaN(date) ? null : date;
+    } catch {
+      return null;
+    }
+  };
+
+  const calculateAge = (birthDate, measurementDate) => {
+    const birth = parsePhvDate(birthDate);
+    const measurement = parsePhvDate(measurementDate) || new Date();
+
+    if (!birth) return 0;
+
+    const diffMs = measurement - birth;
+    const ageDate = new Date(diffMs);
+    return Math.abs(ageDate.getUTCFullYear() - 1970) + (ageDate.getUTCMonth() / 12);
+  };
+
+  const calculatePHV = (gender, age, height, weight, sittingHeight, legLength) => {
+    let maturityOffset;
+
+    if (gender === 'Chłopiec' || gender === 'M' || gender === 'Mężczyzna') {
+      maturityOffset = -9.236 + 
+        (0.0002708 * legLength * sittingHeight) +
+        (-0.001663 * age * legLength) +
+        (0.007216 * age * sittingHeight) +
+        (0.02292 * (weight / height) * 100);
+    } else {
+      maturityOffset = -9.376 + 
+        (0.0001882 * legLength * sittingHeight) +
+        (0.0022 * age * legLength) +
+        (0.005841 * age * sittingHeight) +
+        (-0.002658 * age * weight) +
+        (0.07693 * (weight / height) * 100);
+    }
+
+    let phase;
+    if (maturityOffset < -1.0) {
+      phase = 'PRE-PHV';
+    } else if (maturityOffset >= -1.0 && maturityOffset <= 1.0) {
+      phase = 'CIRCA-PHV';
+    } else {
+      phase = 'POST-PHV';
+    }
+
+    return {
+      maturityOffset,
+      phase
+    };
+  };
+
+  const fetchPhvData = async () => {
+    const methods = [
+      {
+        name: `Export CSV po nazwie (${PHV_SHEET_NAME})`,
+        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(PHV_SHEET_NAME)}`
+      },
+      {
+        name: `Export CSV (arkusz PHV - GID=${PHV_SHEET_GID})`,
+        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${PHV_SHEET_GID}`
+      },
+      {
+        name: `Google Sheets gviz (GID=${PHV_SHEET_GID})`,
+        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${PHV_SHEET_GID}`
+      },
+      {
+        name: `AllOrigins API (GID=${PHV_SHEET_GID})`,
+        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${PHV_SHEET_GID}`)}`
+      }
+    ];
+
+    for (const method of methods) {
+      try {
+        const response = await fetch(method.url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        if (!response.ok) {
+          continue;
+        }
+
+        const csvText = await response.text();
+        if (!csvText || csvText.trim().length === 0) {
+          continue;
+        }
+
+        if (csvText.includes('<!DOCTYPE html>') || csvText.includes('<html')) {
+          continue;
+        }
+
+        const lines = csvText.split('\n').filter(line => line.trim());
+        if (lines.length < 2) {
+          continue;
+        }
+
+        const nextMap = new Map();
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          const columns = [];
+          let current = '';
+          let inQuotes = false;
+
+          for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              columns.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          columns.push(current.trim());
+
+          const cleanColumns = columns.map(col => col.replace(/^"|"$/g, ''));
+
+          if (cleanColumns.length < 6) {
+            continue;
+          }
+
+          const measurementDate = cleanColumns[0];
+          const name = cleanColumns[1];
+          if (!name || name.toLowerCase().includes('imię') || name === '') {
+            continue;
+          }
+
+          const height = parseFloat(cleanColumns[2]) || 0;
+          const weight = parseFloat(cleanColumns[3]) || 0;
+          const sittingHeight = parseFloat(cleanColumns[4]) || 0;
+          const birthDate = cleanColumns[5];
+          const gender = 'Chłopiec';
+
+          if (height === 0 || weight === 0 || sittingHeight === 0) {
+            continue;
+          }
+
+          const legLength = height - sittingHeight;
+          const age = calculateAge(birthDate, measurementDate);
+          if (age === 0) {
+            continue;
+          }
+
+          const phvResults = calculatePHV(gender, age, height, weight, sittingHeight, legLength);
+          const phaseLabel = phvResults.phase === 'PRE-PHV' ? 'Pre' : phvResults.phase === 'CIRCA-PHV' ? 'Circa' : 'Post';
+
+          const normalizedName = normalizeText(name);
+          const measurementDateObj = parsePhvDate(measurementDate);
+          const existing = nextMap.get(normalizedName);
+
+          if (!existing || (measurementDateObj && existing.measurementDate && measurementDateObj > existing.measurementDate) || (!existing.measurementDate && measurementDateObj)) {
+            nextMap.set(normalizedName, {
+              phase: phaseLabel,
+              measurementDate: measurementDateObj
+            });
+          }
+        }
+
+        if (nextMap.size > 0) {
+          setPhvMap(nextMap);
+        }
+        return;
+      } catch (err) {
+        console.error(`${method.name} - błąd:`, err);
+        continue;
+      }
+    }
   };
   
   // Funkcja parsowania daty (musi być przed filtrowaniem okresu)
@@ -315,6 +500,13 @@ export default function MonitoringObciazen() {
     if (value >= 5) return '#facc15'; // żółty
     if (value >= 3) return '#22c55e'; // zielony
     return '#16a34a'; // ciemny zielony
+  };
+
+  const getPhvBadgeClasses = (phase) => {
+    if (phase === 'Pre') return 'bg-emerald-100 text-emerald-700';
+    if (phase === 'Circa') return 'bg-amber-100 text-amber-700';
+    if (phase === 'Post') return 'bg-blue-100 text-blue-700';
+    return 'bg-gray-100 text-gray-600';
   };
 
   // Najpierw filtrujemy po zawodnikach (jeden lub więcej), potem po drużynie, potem po czasie
@@ -451,13 +643,32 @@ export default function MonitoringObciazen() {
       const normalized = d.nazwiskoNormalized || normalizeText(d.nazwisko);
       return normalized === playerNormalized;
     });
+    const weeklyTotals = new Map();
+    playerData.forEach(d => {
+      const dateStr = parseDate(d.data);
+      if (!dateStr) return;
+      const weekKey = formatDateKey(getCalendarWeekStart(new Date(dateStr)));
+      weeklyTotals.set(weekKey, (weeklyTotals.get(weekKey) || 0) + d.obciazenie);
+    });
+    const weeklyLoads = Array.from(weeklyTotals.values());
+    const avgWeeklyLoad = weeklyLoads.length > 0
+      ? weeklyLoads.reduce((sum, value) => sum + value, 0) / weeklyLoads.length
+      : 0;
     const totalLoad = playerData.reduce((sum, d) => sum + d.obciazenie, 0);
+    const percentVsRecommended = recommendedWeeklySRPE > 0
+      ? (avgWeeklyLoad / recommendedWeeklySRPE) * 100
+      : null;
+    const phvInfo = phvMap.get(playerNormalized);
     return {
       nazwisko: player,
       srednieObciazenie: Math.round(playerData.length > 0 ? totalLoad / playerData.length : 0),
       sredniaRPE: parseFloat((playerData.reduce((sum, d) => sum + d.rpe, 0) / playerData.length || 0).toFixed(1)),
       calkowiteObciazenie: Math.round(totalLoad),
-      liczbaSesji: playerData.length
+      liczbaSesji: playerData.length,
+      phvPhase: phvInfo?.phase || 'Brak',
+      srednieTygodnioweObciazenie: Math.round(avgWeeklyLoad),
+      rekomendowaneSRPE: recommendedWeeklySRPE,
+      percentVsRecommended: percentVsRecommended === null ? null : Math.round(percentVsRecommended)
     };
   }).sort((a, b) => b.calkowiteObciazenie - a.calkowiteObciazenie);
 
@@ -1146,17 +1357,38 @@ export default function MonitoringObciazen() {
 
             {selectedPlayers.includes('wszyscy') && playerComparison.length > 0 && (
               <div className="bg-white rounded-lg shadow-lg p-4 md:p-6 mb-6">
-                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4">
-                  👥 Porównanie zawodników
-                </h2>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-800">
+                    👥 Porównanie zawodników
+                  </h2>
+                  <div className="flex items-center gap-2 text-sm">
+                    <label className="text-gray-600 font-medium">Rekom. sRPE (tyg.)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={recommendedWeeklySRPE}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        const parsed = nextValue === '' ? 0 : Number(nextValue);
+                        setRecommendedWeeklySRPE(Number.isFinite(parsed) ? parsed : 0);
+                      }}
+                      className="w-28 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                </div>
                 <div className="overflow-x-auto mb-6">
                   <table className="w-full text-sm">
                     <thead className="bg-gradient-to-r from-indigo-50 to-purple-50">
                       <tr>
                         <th className="px-4 py-3 text-left font-semibold text-gray-700">Zawodnik</th>
+                        <th className="px-4 py-3 text-center font-semibold text-gray-700">PHV</th>
                         <th className="px-4 py-3 text-center font-semibold text-gray-700">Sesje</th>
                         <th className="px-4 py-3 text-center font-semibold text-gray-700">Śr. RPE</th>
                         <th className="px-4 py-3 text-center font-semibold text-gray-700">Śr. obciąż.</th>
+                        <th className="px-4 py-3 text-center font-semibold text-gray-700">Śr. tyg. obciąż.</th>
+                        <th className="px-4 py-3 text-center font-semibold text-gray-700">Rekom. sRPE</th>
+                        <th className="px-4 py-3 text-center font-semibold text-gray-700">% vs rekom.</th>
                         <th className="px-4 py-3 text-center font-semibold text-gray-700">Całk. obciąż.</th>
                       </tr>
                     </thead>
@@ -1167,6 +1399,11 @@ export default function MonitoringObciazen() {
                           className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-indigo-50 transition-colors`}
                         >
                           <td className="px-4 py-3 font-semibold text-gray-800">{player.nazwisko}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPhvBadgeClasses(player.phvPhase)}`}>
+                              {player.phvPhase}
+                            </span>
+                          </td>
                           <td className="px-4 py-3 text-center text-gray-700">{player.liczbaSesji}</td>
                           <td className="px-4 py-3 text-center">
                             <span className={`font-semibold ${
@@ -1178,6 +1415,22 @@ export default function MonitoringObciazen() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center font-medium text-purple-700">{player.srednieObciazenie}</td>
+                          <td className="px-4 py-3 text-center font-medium text-gray-800">{player.srednieTygodnioweObciazenie}</td>
+                          <td className="px-4 py-3 text-center text-gray-700">{player.rekomendowaneSRPE}</td>
+                          <td className="px-4 py-3 text-center">
+                            {player.percentVsRecommended === null ? (
+                              <span className="text-gray-400">-</span>
+                            ) : (
+                              <span className={`font-semibold ${
+                                player.percentVsRecommended >= 120 ? 'text-red-600' :
+                                player.percentVsRecommended >= 105 ? 'text-orange-600' :
+                                player.percentVsRecommended >= 95 ? 'text-amber-600' :
+                                'text-emerald-600'
+                              }`}>
+                                {player.percentVsRecommended}%
+                              </span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-center">
                             <span className="font-bold text-indigo-600 text-base">{player.calkowiteObciazenie}</span>
                           </td>
