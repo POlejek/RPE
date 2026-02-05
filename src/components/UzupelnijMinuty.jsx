@@ -113,9 +113,11 @@ export default function UzupelnijMinuty() {
             continue;
           }
 
-          const id = `${name}__${trainingDate}__${timestamp}`;
+          const rowIndex = i + 1;
+          const id = `${rowIndex}__${name}__${trainingDate}__${timestamp}`;
           parsedRows.push({
             id,
+            rowIndex,
             name,
             team,
             trainingDate,
@@ -180,6 +182,7 @@ export default function UzupelnijMinuty() {
 
     try {
       const payload = new URLSearchParams({
+        rowIndex: String(row.rowIndex || ''),
         name: row.name,
         trainingDate: row.trainingDate,
         timestamp: row.timestamp,
@@ -205,6 +208,7 @@ export default function UzupelnijMinuty() {
     try {
       const payload = new URLSearchParams({
         action: 'delete',
+        rowIndex: String(row.rowIndex || ''),
         name: row.name,
         trainingDate: row.trainingDate,
         timestamp: row.timestamp
