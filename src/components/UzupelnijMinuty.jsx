@@ -3,7 +3,11 @@ import { AlertCircle, CheckCircle, RefreshCw, Save, Trash2, Users } from 'lucide
 
 export default function UzupelnijMinuty() {
   const SHEET_ID = '1w0gwkeDLWh1rSkz-PWxnA9uB_43Fn7z52wmtQh70z34';
-  const SHEET_GID = '243539768';
+  
+  // GID arkuszy źródłowych (WAŻNE: pobieramy z nich dane!)
+  const RESPONSE_2013_SHEET_NAME = 'Response 2013';
+  const RESPONSE_2011_SHEET_NAME = 'Response 2011';
+  
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygQIsgWF_uJaRsgnjV9uDWFAfh8cwNizw-NCUax7dA4avuVniOdl_z2m7dWU6j6R6V/exec';
 
   const [rows, setRows] = useState([]);
@@ -18,126 +22,137 @@ export default function UzupelnijMinuty() {
     setLoading(true);
     setError('');
 
-    const methods = [
-      {
-        name: `Export CSV (arkusz Response - GID=${SHEET_GID})`,
-        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`
-      },
-      {
-        name: `Google Sheets gviz (GID=${SHEET_GID})`,
-        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`
-      },
-      {
-        name: `AllOrigins API (GID=${SHEET_GID})`,
-        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`)}`
-      },
-      {
-        name: `Export CSV (domyslny)`,
-        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
-      },
-      {
-        name: 'Google Sheets gviz (domyslny)',
-        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`
-      }
+    // Lista arkuszy źródłowych do pobrania
+    const sourceSheets = [
+      { name: RESPONSE_2013_SHEET_NAME, label: '2013' },
+      { name: RESPONSE_2011_SHEET_NAME, label: '2011' }
     ];
 
-    let success = false;
+    const allParsedRows = [];
+    let successCount = 0;
 
-    for (const method of methods) {
-      try {
-        const response = await fetch(method.url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-
-        if (!response.ok) {
-          continue;
+    for (const sourceSheet of sourceSheets) {
+      console.log(`Pobieranie danych z arkusza: ${sourceSheet.name}`);
+      
+      const methods = [
+        {
+          name: `Export CSV (${sourceSheet.name})`,
+          url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sourceSheet.name)}`
+        },
+        {
+          name: `AllOrigins API (${sourceSheet.name})`,
+          url: `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sourceSheet.name)}`)}`
         }
+      ];
 
-        const csvText = await response.text();
-        if (!csvText || csvText.trim().length === 0) {
-          continue;
-        }
+      let sheetSuccess = false;
 
-        if (csvText.includes('<!DOCTYPE html>') || csvText.includes('<html')) {
-          continue;
-        }
-
-        const lines = csvText.split('\n').filter(line => line.trim());
-        if (lines.length < 2) {
-          continue;
-        }
-
-        const parsedRows = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-
-          const columns = [];
-          let current = '';
-          let inQuotes = false;
-
-          for (let j = 0; j < line.length; j++) {
-            const char = line[j];
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              columns.push(current.trim());
-              current = '';
-            } else {
-              current += char;
+      for (const method of methods) {
+        try {
+          const response = await fetch(method.url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
-          }
-          columns.push(current.trim());
-
-          const cleanColumns = columns.map(col => col.replace(/^"|"$/g, ''));
-          if (cleanColumns.length < 7) {
-            continue;
-          }
-
-          const timestamp = cleanColumns[0];
-          const name = cleanColumns[1];
-          const trainingDate = cleanColumns[2];
-          const rpeRaw = cleanColumns[3];
-          const minutesRaw = cleanColumns[4];
-          const team = (cleanColumns.length > 6 ? cleanColumns[6] : 'Brak') || 'Brak';
-
-          if (!name || name.toLowerCase().includes('nazwisko') || name.toLowerCase().includes('imie')) {
-            continue;
-          }
-
-          const isMissingMinutes = minutesRaw == null || String(minutesRaw).trim() === '';
-          if (!isMissingMinutes) {
-            continue;
-          }
-
-          const rowIndex = i + 1;
-          const id = `${rowIndex}__${name}__${trainingDate}__${timestamp}`;
-          parsedRows.push({
-            id,
-            rowIndex,
-            name,
-            team,
-            trainingDate,
-            timestamp,
-            rpe: parseFloat(rpeRaw) || null
           });
-        }
 
-        setRows(parsedRows);
-        setAccessMethod(method.name);
-        success = true;
-        break;
-      } catch (err) {
-        console.error(`${method.name} - blad:`, err);
-        continue;
+          if (!response.ok) {
+            continue;
+          }
+
+          const csvText = await response.text();
+          if (!csvText || csvText.trim().length === 0) {
+            continue;
+          }
+
+          if (csvText.includes('<!DOCTYPE html>') || csvText.includes('<html')) {
+            continue;
+          }
+
+          const lines = csvText.split('\n').filter(line => line.trim());
+          if (lines.length < 2) {
+            continue;
+          }
+
+          console.log(`✓ Pobrano ${lines.length} linii z ${sourceSheet.name}`);
+
+          // Parsuj wiersze z tego arkusza
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const columns = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let j = 0; j < line.length; j++) {
+              const char = line[j];
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                columns.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            columns.push(current.trim());
+
+            const cleanColumns = columns.map(col => col.replace(/^"|"$/g, ''));
+            if (cleanColumns.length < 7) {
+              continue;
+            }
+
+            const timestamp = cleanColumns[0];
+            const name = cleanColumns[1];
+            const trainingDate = cleanColumns[2];
+            const rpeRaw = cleanColumns[3];
+            const minutesRaw = cleanColumns[4];
+            const team = (cleanColumns.length > 6 ? cleanColumns[6] : sourceSheet.label) || sourceSheet.label;
+
+            if (!name || name.toLowerCase().includes('nazwisko') || name.toLowerCase().includes('imie')) {
+              continue;
+            }
+
+            const isMissingMinutes = minutesRaw == null || String(minutesRaw).trim() === '';
+            if (!isMissingMinutes) {
+              continue;
+            }
+
+            const rowIndex = i + 1;
+            const id = `${sourceSheet.name}__${rowIndex}__${name}__${trainingDate}__${timestamp}`;
+            
+            allParsedRows.push({
+              id,
+              rowIndex,
+              name,
+              team,
+              trainingDate,
+              timestamp,
+              rpe: parseFloat(rpeRaw) || null,
+              sourceSheet: sourceSheet.name // WAŻNE: zapisujemy źródło danych!
+            });
+          }
+
+          sheetSuccess = true;
+          successCount++;
+          break;
+        } catch (err) {
+          console.error(`${method.name} - błąd:`, err);
+          continue;
+        }
+      }
+
+      if (!sheetSuccess) {
+        console.warn(`Nie udało się pobrać danych z ${sourceSheet.name}`);
       }
     }
 
-    if (!success) {
-      setError('Nie mozna pobrac danych. Sprawdz uprawnienia arkusza.');
+    if (successCount === 0) {
+      setError('Nie można pobrać danych z żadnego arkusza źródłowego.');
+    } else {
+      console.log(`✓ Pobrano dane z ${successCount} arkuszy, łącznie ${allParsedRows.length} rekordów z brakującymi minutami`);
+      setRows(allParsedRows);
+      setAccessMethod(`Pobrano z ${successCount} arkuszy źródłowych`);
     }
 
     setLoading(false);
@@ -182,48 +197,119 @@ export default function UzupelnijMinuty() {
 
     try {
       const payload = new URLSearchParams({
-        rowIndex: String(row.rowIndex || ''),
         name: row.name,
         trainingDate: row.trainingDate,
         timestamp: row.timestamp,
-        minutes: String(minutesValue)
+        minutes: String(minutesValue),
+        action: 'update'
       });
 
-      await fetch(APPS_SCRIPT_URL, {
+      console.log('Wysyłanie danych do Apps Script:', {
+        url: APPS_SCRIPT_URL,
+        name: row.name,
+        trainingDate: row.trainingDate,
+        minutes: minutesValue,
+        sourceSheet: row.sourceSheet  // Dla informacji (Apps Script i tak wyszuka wiersz)
+      });
+
+      const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        mode: 'no-cors',
-        body: payload
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: payload.toString(),
+        redirect: 'follow'
       });
 
-      setRows(prev => prev.filter(item => item.id !== row.id));
-      updateStatus(row.id, { state: 'success', message: 'Wyslano do zapisu.' });
+      console.log('Odpowiedź z Apps Script:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      // Sprawdź odpowiedź
+      const result = await response.json();
+      console.log('Wynik JSON:', result);
+      
+      if (result.status === 'success') {
+        setRows(prev => prev.filter(item => item.id !== row.id));
+        setMinutesById(prev => {
+          const updated = {...prev};
+          delete updated[row.id];
+          return updated;
+        });
+        
+        // Pokaż do którego arkusza zapisano
+        const sheetInfo = result.sheet ? ` (${result.sheet})` : '';
+        updateStatus(row.id, { 
+          state: 'success', 
+          message: `Zapisano pomyslnie!${sheetInfo}` 
+        });
+        
+        // Wyczyść status po 3 sekundach
+        setTimeout(() => {
+          updateStatus(row.id, { state: '', message: '' });
+        }, 3000);
+      } else {
+        console.error('Błąd z Apps Script:', result);
+        updateStatus(row.id, { state: 'error', message: result.message || 'Blad zapisu.' });
+      }
     } catch (err) {
-      updateStatus(row.id, { state: 'error', message: 'Blad polaczenia.' });
+      console.error('Blad zapisu:', err);
+      updateStatus(row.id, { state: 'error', message: 'Blad polaczenia. Sprawdz URL Apps Script.' });
     }
   };
 
   const handleDelete = async (row) => {
+    if (!confirm(`Czy na pewno chcesz usunąć rekord dla ${row.name}?`)) {
+      return;
+    }
+
     updateStatus(row.id, { state: 'saving', message: '' });
 
     try {
       const payload = new URLSearchParams({
         action: 'delete',
-        rowIndex: String(row.rowIndex || ''),
         name: row.name,
         trainingDate: row.trainingDate,
         timestamp: row.timestamp
       });
 
-      await fetch(APPS_SCRIPT_URL, {
+      const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        mode: 'no-cors',
-        body: payload
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: payload.toString(),
+        redirect: 'follow'
       });
 
-      setRows(prev => prev.filter(item => item.id !== row.id));
-      updateStatus(row.id, { state: 'success', message: 'Usunieto wpis.' });
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        setRows(prev => prev.filter(item => item.id !== row.id));
+        setMinutesById(prev => {
+          const updated = {...prev};
+          delete updated[row.id];
+          return updated;
+        });
+        
+        const sheetInfo = result.sheet ? ` (${result.sheet})` : '';
+        updateStatus(row.id, { 
+          state: 'success', 
+          message: `Usunieto pomyslnie!${sheetInfo}` 
+        });
+        
+        // Wyczyść status po 3 sekundach
+        setTimeout(() => {
+          updateStatus(row.id, { state: '', message: '' });
+        }, 3000);
+      } else {
+        updateStatus(row.id, { state: 'error', message: result.message || 'Blad usuwania.' });
+      }
     } catch (err) {
-      updateStatus(row.id, { state: 'error', message: 'Blad polaczenia.' });
+      console.error('Blad usuwania:', err);
+      updateStatus(row.id, { state: 'error', message: 'Blad polaczenia. Sprawdz URL Apps Script.' });
     }
   };
 
@@ -255,8 +341,28 @@ export default function UzupelnijMinuty() {
             </div>
           </div>
 
-          <div className="mt-4 text-sm text-gray-600 bg-orange-50 p-3 rounded-lg">
-            Brakujace minuty w arkuszu Response. Po zapisie rekord znika z listy.
+          <div className="mt-4 space-y-2">
+            <div className="text-sm text-gray-600 bg-orange-50 p-3 rounded-lg">
+              <p className="font-semibold mb-1">📋 Brakujące minuty - pobrano bezpośrednio z arkuszy źródłowych</p>
+              <p><strong>Response 2013</strong> i <strong>Response 2011</strong></p>
+              <p className="text-xs mt-1">Po zapisie dane trafiają do tego samego arkusza, z którego zostały pobrane. ✅</p>
+            </div>
+            <details className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg cursor-pointer">
+              <summary className="font-semibold cursor-pointer hover:text-blue-700">
+                ⚙️ Konfiguracja Google Apps Script
+              </summary>
+              <div className="mt-2 space-y-1">
+                <p className="font-mono bg-white p-2 rounded border">
+                  URL: {APPS_SCRIPT_URL}
+                </p>
+                <p className="text-gray-600">
+                  Jesli zapis nie dziala, sprawdz czy Google Apps Script jest poprawnie wdrozony.
+                </p>
+                <p className="text-gray-600">
+                  Otwórz arkusz Google Sheets → Rozszerzenia → Apps Script
+                </p>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -303,7 +409,7 @@ export default function UzupelnijMinuty() {
               <thead className="bg-gradient-to-r from-amber-50 to-orange-50">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Zawodnik</th>
-                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Druzyna</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Arkusz</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">Data treningu</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">RPE</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">Minuty</th>
@@ -317,7 +423,15 @@ export default function UzupelnijMinuty() {
                     className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-orange-50 transition-colors`}
                   >
                     <td className="px-4 py-3 font-semibold text-gray-800">{row.name}</td>
-                    <td className="px-4 py-3 text-center text-orange-700 font-semibold">{row.team}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                        row.sourceSheet === 'Response 2013' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {row.sourceSheet === 'Response 2013' ? '2013' : '2011'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-center text-gray-800">{row.trainingDate}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{row.rpe ?? '-'}</td>
                     <td className="px-4 py-3 text-center">

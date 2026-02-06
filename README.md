@@ -61,6 +61,37 @@ npm run build
 const SHEET_ID = 'TWOJE_ID_ARKUSZA';
 ```
 
+### Google Apps Script (dla funkcji "Uzupełnij Minuty")
+
+Aby umożliwić zapisywanie uzupełnionych minut z powrotem do arkuszy źródłowych:
+
+**Jak to działa**:
+- Aplikacja pobiera dane **bezpośrednio z Response 2013 i Response 2011** (nie z arkusza zbiorczego!)
+- Po uzupełnieniu minut, Apps Script zapisuje je do tego samego arkusza, z którego zostały pobrane
+- Dopasowanie następuje po: Nazwisko + Data treningu + Timestamp
+
+**Konfiguracja**:
+
+1. Otwórz arkusz Google Sheets
+2. Kliknij **Rozszerzenia** → **Apps Script**
+3. Skopiuj kod z pliku **[AppsScript.gs](AppsScript.gs)**
+4. Kliknij **Zapisz** (Ctrl+S)
+5. Kliknij **Wdróż** → **Zarządzaj wdrożeniami**
+6. Jeśli masz już wdrożenie:
+   - Kliknij ikonę **ołówka** → **Nowa wersja** → **Wdróż**
+7. Jeśli nie masz wdrożenia:
+   - **Nowe wdrożenie** → **Aplikacja internetowa**
+   - **Wykonaj jako**: Ja
+   - **Kto ma dostęp**: Wszyscy
+   - Kliknij **Wdróż** i **skopiuj URL**
+
+📖 Szczegółowa instrukcja: [GOOGLE_APPS_SCRIPT_SETUP.md](GOOGLE_APPS_SCRIPT_SETUP.md)
+
+**Aktualny URL Apps Script:**
+```
+https://script.google.com/macros/s/AKfycbygQIsgWF_uJaRsgnjV9uDWFAfh8cwNizw-NCUax7dA4avuVniOdl_z2m7dWU6j6R6V/exec
+```
+
 ## 📊 Skala RPE
 
 - **1-3**: Trening lekki
