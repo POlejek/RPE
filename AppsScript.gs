@@ -69,18 +69,29 @@ function doPost(e) {
           }
         }
         
-        // Dopasowanie: nazwisko + data + timestamp (jeśli jest)
+        // Dopasowanie - PRIORYTET: timestamp (unikalne ID)
         const nameMatch = rowName.trim().toLowerCase() === name.trim().toLowerCase();
         const dateMatch = rowDate === trainingDate;
-        const timestampMatch = !timestamp || rowTimestamp.includes(timestamp) || timestamp.includes(rowTimestamp.substring(0, 10));
+        
+        // Timestamp matching - porównaj początek timestampu lub pełny timestamp
+        let timestampMatch = false;
+        if (timestamp && rowTimestamp) {
+          // Usuń znaki specjalne i porównaj początki
+          const cleanRowTs = rowTimestamp.replace(/[^\d]/g, '').substring(0, 14); // YYYYMMDDHHmmss
+          const cleanInputTs = timestamp.replace(/[^\d]/g, '').substring(0, 14);
+          timestampMatch = cleanRowTs.startsWith(cleanInputTs.substring(0, 12)); // Data + godzina + minuta
+        } else {
+          timestampMatch = !timestamp; // Jeśli nie ma timestampu, dopasuj tylko name+date
+        }
         
         // Loguj pierwsze kilka porównań
         if (i < 3) {
-          Logger.log('Wiersz ' + (i+2) + ': "' + rowName + '" | "' + rowDate + '" | nameMatch=' + nameMatch + ', dateMatch=' + dateMatch + ', timestampMatch=' + timestampMatch);
+          Logger.log('Wiersz ' + (i+2) + ': "' + rowName + '" | "' + rowDate + '" | ts:"' + rowTimestamp.substring(0, 20) + '"');
+          Logger.log('  nameMatch=' + nameMatch + ', dateMatch=' + dateMatch + ', timestampMatch=' + timestampMatch);
         }
         
         if (nameMatch && dateMatch && timestampMatch) {
-          Logger.log('✓ ZNALEZIONO! Wiersz ' + (i + 2) + ' - ' + rowName + ', ' + rowDate);
+          Logger.log('✓ ZNALEZIONO! Wiersz ' + (i + 2) + ' - ' + rowName + ', ' + rowDate + ', timestamp: ' + rowTimestamp);
           return i + 2; // +2 bo zaczynamy od wiersza 2 i indeks tablicy od 0
         }
       }

@@ -208,8 +208,9 @@ export default function UzupelnijMinuty() {
         url: APPS_SCRIPT_URL,
         name: row.name,
         trainingDate: row.trainingDate,
+        timestamp: row.timestamp,  // WAŻNE: unikalny identyfikator!
         minutes: minutesValue,
-        sourceSheet: row.sourceSheet  // Dla informacji (Apps Script i tak wyszuka wiersz)
+        sourceSheet: row.sourceSheet
       });
 
       const response = await fetch(APPS_SCRIPT_URL, {
@@ -410,6 +411,7 @@ export default function UzupelnijMinuty() {
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Zawodnik</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">Arkusz</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">Sygnatura czasowa</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">Data treningu</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">RPE</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">Minuty</th>
@@ -432,6 +434,7 @@ export default function UzupelnijMinuty() {
                         {row.sourceSheet === 'Response 2013' ? '2013' : '2011'}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center text-xs text-gray-600">{row.timestamp}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{row.trainingDate}</td>
                     <td className="px-4 py-3 text-center text-gray-800">{row.rpe ?? '-'}</td>
                     <td className="px-4 py-3 text-center">
@@ -481,7 +484,7 @@ export default function UzupelnijMinuty() {
                   </tr>
                 ))}
                 {!loading && filteredRows.length === 0 && (
-                  <tr>
+                  <tr>7
                     <td colSpan="6" className="px-4 py-6 text-center text-gray-500">
                       Brak rekordow z brakujacymi minutami.
                     </td>
