@@ -1,6 +1,6 @@
 /**
  * Google Apps Script dla zapisywania minut do arkusza Google Sheets
- * URL wdrożenia: https://script.google.com/macros/s/AKfycbygQIsgWF_uJaRsgnjV9uDWFAfh8cwNizw-NCUax7dA4avuVniOdl_z2m7dWU6j6R6V/exec
+ * URL wdrożenia: https://script.google.com/macros/s/AKfycbx2_dksu9TLbjIlWmSEOKgkxEc8xN4Z81lUnc4FKfXNtT2ELhAU_QJF6U96i0J7y3FX/exec
  * 
  * INSTRUKCJA WDROŻENIA:
  * 1. Otwórz arkusz Google Sheets
@@ -52,7 +52,22 @@ function doPost(e) {
         const row = data[i];
         const rowTimestamp = row[0] ? row[0].toString() : '';
         const rowName = row[1] ? row[1].toString() : '';
-        const rowDate = row[2] ? row[2].toString() : '';
+        
+        // Pobierz datę i konwertuj na format YYYY-MM-DD
+        let rowDate = '';
+        if (row[2]) {
+          if (row[2] instanceof Date) {
+            // Jeśli to obiekt Date, sformatuj do YYYY-MM-DD
+            const d = new Date(row[2]);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            rowDate = `${year}-${month}-${day}`;
+          } else {
+            // Jeśli to string, użyj bezpośrednio
+            rowDate = row[2].toString();
+          }
+        }
         
         // Dopasowanie: nazwisko + data + timestamp (jeśli jest)
         const nameMatch = rowName.trim().toLowerCase() === name.trim().toLowerCase();
@@ -61,7 +76,7 @@ function doPost(e) {
         
         // Loguj pierwsze kilka porównań
         if (i < 3) {
-          Logger.log('Wiersz ' + (i+2) + ': ' + rowName + ' | ' + rowDate + ' | nameMatch=' + nameMatch + ', dateMatch=' + dateMatch + ', timestampMatch=' + timestampMatch);
+          Logger.log('Wiersz ' + (i+2) + ': "' + rowName + '" | "' + rowDate + '" | nameMatch=' + nameMatch + ', dateMatch=' + dateMatch + ', timestampMatch=' + timestampMatch);
         }
         
         if (nameMatch && dateMatch && timestampMatch) {
@@ -346,16 +361,15 @@ function testSaveMinutes() {
 
 /**
  * Funkcja testowa - symuluje wyszukiwanie konkretnego rekordu
- * Zmień nazwisko i datę na rzeczywisty rekord z Twojego arkusza
+ * TEST DLA: Łajtar Ignacy (2026-02-05)
  */
 function testFindRecord() {
   Logger.log('==== TEST WYSZUKIWANIA REKORDU ====');
   
-  // ZMIEŃ TE WARTOŚCI NA RZECZYWISTE Z ARKUSZA:
-  const testName = 'Jan Kowalski';  // Wpisz nazwisko z arkusza
-  const testDate = '2026-02-05';    // Wpisz datę w formacie YYYY-MM-DD
+  const testName = 'Łajtar Ignacy';
+  const testDate = '2026-02-05';
   
-  Logger.log('Szukam rekordu: ' + testName + ', data: ' + testDate);
+  Logger.log('Szukam rekordu: "' + testName + '", data: "' + testDate + '"');
   Logger.log('');
   
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -377,37 +391,49 @@ function testFindRecord() {
     
     const data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
     
-    for (let i = 0; i < data.length; i++) {
+    for (let i = 0; i < Math.min(10, data.length); i++) {
       const rowName = data[i][1] ? data[i][1].toString() : '';
-      const rowDate = data[i][2] ? data[i][2].toString() : '';
+      
+      // Konwertuj datę tak samo jak w doPost
+      let rowDate = '';
+      if (data[i][2]) {
+        if (data[i][2] instanceof Date) {
+          const d = new Date(data[i][2]);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          rowDate = `${year}-${month}-${day}`;
+        } else {
+          rowDate = data[i][2].toString();
+        }
+      }
       
       const nameMatch = rowName.trim().toLowerCase() === name.trim().toLowerCase();
       const dateMatch = rowDate === date;
       
-      if (i < 5) {
-        Logger.log('  Wiersz ' + (i+2) + ': "' + rowName + '" | "' + rowDate + '" | match: ' + (nameMatch && dateMatch));
-      }
+      Logger.log('  Wiersz ' + (i+2) + ':');
+      Logger.log('    Nazwisko: "' + rowName + '" (match: ' + nameMatch + ')');
+      Logger.log('    Data RAW: ' + data[i][2] + ' (typ: ' + typeof data[i][2] + ')');
+      Logger.log('    Data SFORMATOWANA: "' + rowDate + '" (match: ' + dateMatch + ')');
+      Logger.log('    RPE: ' + data[i][3] + ', Minuty: ' + data[i][4]);
       
       if (nameMatch && dateMatch) {
         Logger.log('');
         Logger.log('✓✓✓ ZNALEZIONO w wierszu ' + (i+2) + '! ✓✓✓');
-        Logger.log('  Nazwisko: ' + rowName);
-        Logger.log('  Data: ' + rowDate);
-        Logger.log('  RPE: ' + data[i][3]);
-        Logger.log('  Minuty: ' + data[i][4]);
         return i + 2;
       }
     }
     
-    Logger.log('  ✗ Nie znaleziono');
+    Logger.log('  ✗ Nie znaleziono w pierwszych 10 wierszach');
     return null;
   }
   
   for (let sheet of sourceSheets) {
+    Logger.log('');
     const rowIndex = findRowInSheet(sheet, testName, testDate);
     if (rowIndex) {
       Logger.log('');
-      Logger.log('Rekord znaleziony w arkuszu: ' + sheet.getName());
+      Logger.log('✓ Rekord znaleziony w arkuszu: ' + sheet.getName() + ', wiersz: ' + rowIndex);
       break;
     }
   }

@@ -8,7 +8,7 @@ export default function UzupelnijMinuty() {
   const RESPONSE_2013_SHEET_NAME = 'Response 2013';
   const RESPONSE_2011_SHEET_NAME = 'Response 2011';
   
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygQIsgWF_uJaRsgnjV9uDWFAfh8cwNizw-NCUax7dA4avuVniOdl_z2m7dWU6j6R6V/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx2_dksu9TLbjIlWmSEOKgkxEc8xN4Z81lUnc4FKfXNtT2ELhAU_QJF6U96i0J7y3FX/exec';
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
