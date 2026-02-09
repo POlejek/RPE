@@ -120,6 +120,13 @@ export default function PHVDashboard() {
       .trim();
   };
 
+  const parseNumber = (value) => {
+    if (value === null || value === undefined) return 0;
+    const normalized = value.toString().replace(/\s/g, '').replace(',', '.');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   const fetchTeamMapping = async () => {
     const methods = [
       {
@@ -310,9 +317,9 @@ export default function PHVDashboard() {
             continue;
           }
           
-          const height = parseFloat(cleanColumns[2]) || 0; // Wzrost całkowity
-          const weight = parseFloat(cleanColumns[3]) || 0; // Masa ciała
-          const sittingHeight = parseFloat(cleanColumns[4]) || 0; // Wzrost siedzący
+          const height = parseNumber(cleanColumns[2]); // Wzrost całkowity
+          const weight = parseNumber(cleanColumns[3]); // Masa ciała
+          const sittingHeight = parseNumber(cleanColumns[4]); // Wzrost siedzący
           const birthDate = cleanColumns[5]; // Data urodzenia
           const gender = 'Chłopiec'; // Domyślna płeć
           
@@ -752,6 +759,11 @@ export default function PHVDashboard() {
                           <span className={player.maturityOffset > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
                             {player.maturityOffset > 0 ? '+' : ''}{player.maturityOffset.toFixed(2)}
                           </span>
+                          {Math.abs(player.maturityOffset) <= 0.5 && (
+                            <span className="ml-2 inline-block rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                              PHV
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${

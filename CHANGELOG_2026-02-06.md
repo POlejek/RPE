@@ -2,6 +2,33 @@
 
 ## Data: 6 lutego 2026
 
+### 🆕 NAJNOWSZE ZMIANY (wieczór 6 lutego 2026)
+
+#### ✅ Dodano kolumnę "Sygnatura czasowa" w UI
+- Tabela "Uzupełnij Minuty" teraz wyświetla pełny timestamp dla każdego rekordu
+- Timestamp pozwala użytkownikowi zidentyfikować duplikaty (np. dwa rekordy tego samego zawodnika z tej samej daty)
+- Format: `YYYY-MM-DD HH:mm:ss` (np. "2026-02-05 21:28:51")
+
+#### ✅ Naprawiono dopasowanie timestampów
+**Problem**: Apps Script otrzymywał Date objects z `getValues()`, konwertował je przez `.toString()` do formatu JS Date ("Thu Feb 05..."), co nie pasowało do timestampów z CSV ("2026-02-05 21:28:51").
+
+**Rozwiązanie**: 
+- Apps Script teraz konwertuje Date objects do formatu `YYYY-MM-DD HH:mm:ss`
+- Porównuje pierwsze 16 znaków (do minuty): `"YYYY-MM-DD HH:mm"`
+- Dopasowanie jest precyzyjne i niezawodne
+
+#### ✅ Możliwość usuwania duplikatów
+- Dzięki wyświetlonemu timestampowi użytkownik może:
+  - Zidentyfikować duplikaty (ten sam zawodnik, ta sama data, różne timestampy)
+  - Usunąć wybrany duplikat przyciskiem "Usuń"
+  - Uzupełnić minuty dla właściwego rekordu
+
+#### 📝 Commit
+- `60eb96e`: "feat: Dodano kolumnę Sygnatura czasowa w tabeli uzupełniania minut"
+- Zaktualizowano Apps Script z poprawioną konwersją timestampów
+
+---
+
 ## 📝 Problem
 Minuty były zapisywane do arkusza zbiorczego **Response**, zamiast do oryginalnych arkuszy źródłowych (**Response 2013** i **Response 2011**).
 

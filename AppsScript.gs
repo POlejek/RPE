@@ -50,7 +50,24 @@ function doPost(e) {
       
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
-        const rowTimestamp = row[0] ? row[0].toString() : '';
+        
+        // Konwertuj timestamp (kolumna A) do formatu YYYY-MM-DD HH:mm:ss
+        let rowTimestamp = '';
+        if (row[0]) {
+          if (row[0] instanceof Date) {
+            const d = new Date(row[0]);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            const seconds = String(d.getSeconds()).padStart(2, '0');
+            rowTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+          } else {
+            rowTimestamp = row[0].toString();
+          }
+        }
+        
         const rowName = row[1] ? row[1].toString() : '';
         
         // Pobierz datę i konwertuj na format YYYY-MM-DD
@@ -73,20 +90,28 @@ function doPost(e) {
         const nameMatch = rowName.trim().toLowerCase() === name.trim().toLowerCase();
         const dateMatch = rowDate === trainingDate;
         
-        // Timestamp matching - porównaj początek timestampu lub pełny timestamp
+        // Timestamp matching - porównaj początek timestampu (YYYY-MM-DD HH:mm)
         let timestampMatch = false;
         if (timestamp && rowTimestamp) {
-          // Usuń znaki specjalne i porównaj początki
-          const cleanRowTs = rowTimestamp.replace(/[^\d]/g, '').substring(0, 14); // YYYYMMDDHHmmss
-          const cleanInputTs = timestamp.replace(/[^\d]/g, '').substring(0, 14);
-          timestampMatch = cleanRowTs.startsWith(cleanInputTs.substring(0, 12)); // Data + godzina + minuta
+          // Porównaj pierwsze 16 znaków: "YYYY-MM-DD HH:mm"
+          const shortRowTs = rowTimestamp.substring(0, 16);
+          const shortInputTs = timestamp.substring(0, 16);
+          timestampMatch = shortRowTs === shortInputTs;
+          
+          if (i < 3) {
+            Logger.log('Timestamp DEBUG [wiersz ' + (i+2) + ']:');
+            Logger.log('  RAW timestamp z arkusza: "' + (row[0] instanceof Date ? row[0].toISOString() : row[0]) + '"');
+            Logger.log('  Sformatowany: "' + rowTimestamp + '"');
+            Logger.log('  Z UI (input): "' + timestamp + '"');
+            Logger.log('  Porównanie (16 znaków): "' + shortRowTs + '" === "' + shortInputTs + '" = ' + timestampMatch);
+          }
         } else {
           timestampMatch = !timestamp; // Jeśli nie ma timestampu, dopasuj tylko name+date
         }
         
         // Loguj pierwsze kilka porównań
         if (i < 3) {
-          Logger.log('Wiersz ' + (i+2) + ': "' + rowName + '" | "' + rowDate + '" | ts:"' + rowTimestamp.substring(0, 20) + '"');
+          Logger.log('Wiersz ' + (i+2) + ': "' + rowName + '" | "' + rowDate + '" | ts:"' + rowTimestamp + '"');
           Logger.log('  nameMatch=' + nameMatch + ', dateMatch=' + dateMatch + ', timestampMatch=' + timestampMatch);
         }
         

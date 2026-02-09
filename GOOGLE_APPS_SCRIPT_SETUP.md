@@ -18,6 +18,8 @@ Aplikacja:
 - ✅ Zapis trafia dokładnie tam, skąd pobrano dane
 - ✅ Brak problemów z synchronizacją arkusza zbiorczego
 - ✅ Widoczne jest, z którego arkusza pochodzi każdy rekord
+- ✅ Kolumna "Sygnatura czasowa" pozwala identyfikować i usuwać duplikaty
+- ✅ Precyzyjne dopasowanie przez timestamp (do minuty)
 
 ## Rozwiązanie
 
@@ -30,7 +32,16 @@ Aplikacja:
 
 3. Usuń cały obecny kod i wklej kod z pliku: **[AppsScript.gs](AppsScript.gs)**
 
-   Lub wklej poniższy kod bezpośrednio:
+   **UWAGA**: Kod w pliku AppsScript.gs jest aktualny i zawiera:
+   - Konwersję Date objects do formatu YYYY-MM-DD HH:mm:ss
+   - Dopasowanie przez timestamp (pierwsze 16 znaków)
+   - Szczegółowe logowanie dla debugowania
+   - Obsługę usuwania rekordów
+
+   **NIE KOPIUJ** kodu poniżej - jest przestarzały! Użyj kodu z pliku [AppsScript.gs](AppsScript.gs).
+
+   <details>
+   <summary>Stary kod (tylko do porównania)</summary>
 
 ```javascript
 function doPost(e) {
@@ -149,6 +160,15 @@ function testScript() {
 }
 ```
 
+</details>
+
+**UWAGA**: Kod powyżej jest przestarzały! Używa podejścia przez `rowIndex` zamiast timestamp matching.  
+Aktualny kod znajduje się w pliku **[AppsScript.gs](AppsScript.gs)** i zawiera:
+- ✅ Dopasowanie przez timestamp (pierwsze 16 znaków)
+- ✅ Konwersję Date objects do formatu YYYY-MM-DD HH:mm:ss
+- ✅ Szczegółowe logowanie dla debugowania
+- ✅ Obsługę usuwania rekordów
+
 4. Kliknij **Zapisz** (ikona dyskietki lub Ctrl+S)
 
 ### Krok 2A: Jeśli masz już wdrożenie (aktualizacja)
@@ -193,12 +213,11 @@ Jeśli URL wdrożenia się zmienił:
 1. Otwórz aplikację w przeglądarce: http://localhost:5173/RPE/
 2. Przejdź do zakładki **"Uzupełnij Minuty"**
 3. **Sprawdź interfejs**:
-   - Powinnaś widzieć kolumnę **"Arkusz"** z etykietami 2013/2011
-   - Komunikat: "pobrano bezpośrednio z arkuszy źródłowych"
+   - Powinnaś widzieć kolumnę **"Arkusz"** z etykietami 2013/2011   - Powinnaś widzieć kolumnę **"Sygnatura czasowa"** z pełnymi timestampami   - Komunikat: "pobrano bezpośrednio z arkuszy źródłowych"
 4. Otwórz konsolę deweloperską (F12)
 5. Uzupełnij minuty dla jakiegoś rekordu i kliknij **"Zapisz"**
 6. W konsoli zobaczysz szczegółowe logi:
-   - Wysyłane dane (nazwisko, data treningu, sourceSheet)
+   - Wysyłane dane (nazwisko, data treningu, **timestamp**, sourceSheet)
    - Odpowiedź z serwera (status, sheet, row)
    - Ewentualne błędy
 7. **Sprawdź arkusz źródłowy** (Response 2013 lub Response 2011):
@@ -224,7 +243,16 @@ Skrypt zakłada następującą strukturę kolumn w arkuszach źródłowych:
 1. Response 2013
 2. Response 2011
 
-i znajduje wiersz pasujący po: **Nazwisko + Data treningu + Timestamp**
+i znajduje wiersz pasujący po: **Nazwisko + Data treningu + Timestamp (pierwsze 16 znaków: YYYY-MM-DD HH:mm)**
+
+### Jak działa dopasowanie timestamp
+
+**Problem**: Google Sheets przechowuje timestamp jako Date object, a UI wysyła jako string.
+
+**Rozwiązanie**:
+1. Apps Script konwertuje Date object do formatu: `YYYY-MM-DD HH:mm:ss`
+2. Porównuje pierwsze 16 znaków obu timestampów: `YYYY-MM-DD HH:mm`
+3. Dzięki temu różnice w sekundach nie przeszkadzają w dopasowaniu
 
 ## Rozwiązywanie problemów
 
