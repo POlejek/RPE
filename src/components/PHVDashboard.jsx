@@ -700,7 +700,13 @@ export default function PHVDashboard() {
                         return null;
                       }}
                     />
-                    <Scatter name="Zawodnicy" data={scatterData} fill="#8b5cf6" />
+                    <Scatter 
+                      name="Zawodnicy" 
+                      data={scatterData} 
+                      fill="#8b5cf6"
+                      stroke="#6d28d9"
+                      strokeWidth={2}
+                    />
                     <Scatter 
                       name="Linia równowagi" 
                       data={referenceLine} 
