@@ -691,9 +691,9 @@ export default function PHVDashboard() {
                           const data = payload[0].payload;
                           return (
                             <div className="bg-white p-2 border border-gray-300 rounded shadow">
-                              <p className="font-semibold">{data.name}</p>
-                              <p>Kalendarzowy: {data.x.toFixed(1)} lat</p>
-                              <p>Biologiczny: {data.y.toFixed(1)} lat</p>
+                              <p className="font-semibold text-gray-900">{data.name}</p>
+                              <p className="text-gray-800">Kalendarzowy: {data.x.toFixed(1)} lat</p>
+                              <p className="text-gray-800">Biologiczny: {data.y.toFixed(1)} lat</p>
                             </div>
                           );
                         }
