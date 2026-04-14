@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PieChart, Pie, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { Users, TrendingUp, Activity, RefreshCw, AlertCircle, CheckCircle, Download } from 'lucide-react';
 
@@ -7,9 +7,13 @@ export default function PHVDashboard() {
   const SHEET_GID = '1571847888'; // GID dla zakładki "PHV zbiorcze"
   const SHEET_NAME = 'PHV zbiorcze'; // Nazwa zakładki
   const TEAM_GID = '1626032577'; // GID dla zakładki "Zawodnicy"
-  
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx2_dksu9TLbjIlWmSEOKgkxEc8xN4Z81lUnc4FKfXNtT2ELhAU_QJF6U96i0J7y3FX/exec';
+
   const [data, setData] = useState([]);
   const [teamMapping, setTeamMapping] = useState(new Map()); // Mapowanie nazwisko -> drużyna
+  // Ref pozwala odczytać aktualną wartość teamMapping wewnątrz setInterval
+  // (bez niego setInterval widzi zawsze pustą Map z chwili montowania)
+  const teamMappingRef = useRef(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -190,6 +194,7 @@ export default function PHVDashboard() {
         }
         
         console.log(`Załadowano ${mapping.size} mapowań zawodnik-drużyna`);
+        teamMappingRef.current = mapping;
         setTeamMapping(mapping);
         return mapping;
         
@@ -203,12 +208,91 @@ export default function PHVDashboard() {
     return new Map();
   };
 
+  // Pomocnicza funkcja do przeliczenia surowych wierszy (z Apps Script lub CSV) na obiekty zawodników
+  const processRows = (rows, currentTeamMapping) => {
+    const parsedByName = new Map();
+
+    for (const row of rows) {
+      const { measurementDate, name, height, weight, sittingHeight, birthDate } = row;
+
+      if (!name || name.toLowerCase().includes('imię')) continue;
+      if (height === 0 || weight === 0 || sittingHeight === 0) continue;
+
+      const normalizedName = normalizeText(name);
+      const team = currentTeamMapping.get(normalizedName) || 'Brak drużyny';
+      const gender = 'Chłopiec';
+      const legLength = height - sittingHeight;
+      const age = calculateAge(birthDate, measurementDate);
+
+      if (age === 0) continue;
+
+      const phvResults = calculatePHV(gender, age, height, weight, sittingHeight, legLength);
+      const measurementDateObj = parseDate(measurementDate);
+
+      const nextEntry = {
+        name, team, gender, birthDate, measurementDate, measurementDateObj,
+        height, weight, sittingHeight, legLength, chronologicalAge: age, ...phvResults
+      };
+
+      const existing = parsedByName.get(normalizedName);
+      const shouldReplace = !existing ||
+        (measurementDateObj && !existing.measurementDateObj) ||
+        (measurementDateObj && existing.measurementDateObj && measurementDateObj > existing.measurementDateObj);
+
+      if (shouldReplace) {
+        parsedByName.set(normalizedName, nextEntry);
+      }
+    }
+
+    return Array.from(parsedByName.values());
+  };
+
   const fetchData = async (teamMappingParam) => {
     setLoading(true);
     setError('');
-    
-    const currentTeamMapping = teamMappingParam || teamMapping;
-    
+
+    const currentTeamMapping = teamMappingParam || teamMappingRef.current;
+
+    // --- Metoda 1: Apps Script (bezpośredni dostęp do arkusza, bez problemów z CORS) ---
+    try {
+      console.log('Próbuję metodę: Apps Script (bezpośredni)');
+      const response = await fetch(`${APPS_SCRIPT_URL}?action=getPHVData`);
+
+      if (response.ok) {
+        const json = await response.json();
+
+        if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+          // Odbuduj mapowanie drużyn z odpowiedzi Apps Script
+          const appsTeamMapping = new Map();
+          if (json.teamMapping) {
+            for (const [key, value] of Object.entries(json.teamMapping)) {
+              appsTeamMapping.set(key, value);
+            }
+          }
+          teamMappingRef.current = appsTeamMapping;
+          setTeamMapping(appsTeamMapping);
+
+          const parsedData = processRows(json.data, appsTeamMapping);
+
+          if (parsedData.length > 0) {
+            console.log(`Apps Script - SUKCES! Zawodników: ${parsedData.length}`);
+            setData(parsedData);
+            setLastUpdate(new Date());
+            setAccessMethod('Apps Script (bezpośredni)');
+            setLoading(false);
+            return;
+          }
+        }
+
+        if (json.status === 'error') {
+          console.warn('Apps Script zwrócił błąd:', json.message);
+        }
+      }
+    } catch (err) {
+      console.error('Apps Script - błąd:', err);
+    }
+
+    // --- Metody fallback: bezpośredni CSV z Google Sheets ---
     const methods = [
       {
         name: `Export CSV po nazwie (${SHEET_NAME})`,
@@ -235,60 +319,55 @@ export default function PHVDashboard() {
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`
       }
     ];
-    
+
     let success = false;
-    
+
     for (const method of methods) {
       try {
         console.log(`Próbuję metodę: ${method.name}`);
-        
-        const response = await fetch(method.url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-        
+
+        const response = await fetch(method.url);
+
         if (!response.ok) {
           console.log(`${method.name} - błąd HTTP: ${response.status}`);
           continue;
         }
-        
+
         const csvText = await response.text();
-        
+
         console.log(`${method.name} - Pierwsze 200 znaków odpowiedzi:`, csvText.substring(0, 200));
-        
+
         if (!csvText || csvText.trim().length === 0) {
           console.log(`${method.name} - pusta odpowiedź`);
           continue;
         }
-        
+
         if (csvText.includes('<!DOCTYPE html>') || csvText.includes('<html')) {
           console.log(`${method.name} - zwrócono HTML (brak uprawnień)`);
           continue;
         }
-        
+
         const lines = csvText.split('\n').filter(line => line.trim());
-        
+
         if (lines.length < 2) {
           console.log(`${method.name} - za mało linii: ${lines.length}`);
           continue;
         }
-        
+
         console.log(`${method.name} - SUKCES! Liczba linii: ${lines.length}`);
-        
-        const parsedByName = new Map();
-        
+
+        const csvRows = [];
+
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
-          
+
           const columns = [];
           let current = '';
           let inQuotes = false;
-          
+
           for (let j = 0; j < line.length; j++) {
             const char = line[j];
-            
             if (char === '"') {
               inQuotes = !inQuotes;
             } else if (char === ',' && !inQuotes) {
@@ -299,83 +378,22 @@ export default function PHVDashboard() {
             }
           }
           columns.push(current.trim());
-          
+
           const cleanColumns = columns.map(col => col.replace(/^"|"$/g, ''));
-          
-          console.log(`Linia ${i}: Kolumny =`, cleanColumns);
-          
-          // Struktura: Sygnatura czasowa, Imię i Nazwisko, Wzrost (cm), Masa (kg), Wzrost siedzący (cm), Data urodzenia
-          if (cleanColumns.length < 6) {
-            console.log(`Pominięto linię ${i} - za mało kolumn (${cleanColumns.length})`);
-            continue;
-          }
-          
-          const measurementDate = cleanColumns[0]; // Sygnatura czasowa
-          const name = cleanColumns[1]; // Imię i nazwisko
-          if (!name || name.toLowerCase().includes('imię') || name === '') {
-            console.log(`Pominięto linię ${i} - nagłówek lub puste nazwisko`);
-            continue;
-          }
-          
-          const height = parseNumber(cleanColumns[2]); // Wzrost całkowity
-          const weight = parseNumber(cleanColumns[3]); // Masa ciała
-          const sittingHeight = parseNumber(cleanColumns[4]); // Wzrost siedzący
-          const birthDate = cleanColumns[5]; // Data urodzenia
-          const gender = 'Chłopiec'; // Domyślna płeć
-          
-          // Przypisanie drużyny na podstawie mapowania
-          const normalizedName = normalizeText(name);
-          const team = currentTeamMapping.get(normalizedName) || 'Brak drużyny';
-          
-          console.log(`Zawodnik: ${name}, Drużyna: ${team}, Płeć: ${gender} (domyślna), Wzrost: ${height}, Masa: ${weight}, Wys.siedz: ${sittingHeight}`);
-          
-          if (height === 0 || weight === 0 || sittingHeight === 0) {
-            console.log(`Pominięto linię ${i} - brak pomiarów`);
-            continue;
-          }
-          
-          const legLength = height - sittingHeight;
-          const age = calculateAge(birthDate, measurementDate);
-          
-          console.log(`Wiek: ${age}, Długość nóg: ${legLength}`);
-          
-          if (age === 0) {
-            console.log(`Pominięto linię ${i} - brak wieku`);
-            continue;
-          }
-          
-          const phvResults = calculatePHV(gender, age, height, weight, sittingHeight, legLength);
-          
-          console.log(`PHV Results:`, phvResults);
-          
-          const measurementDateObj = parseDate(measurementDate);
 
-          const nextEntry = {
-            name,
-            team,
-            gender,
-            birthDate,
-            measurementDate,
-            measurementDateObj,
-            height,
-            weight,
-            sittingHeight,
-            legLength,
-            chronologicalAge: age,
-            ...phvResults
-          };
+          if (cleanColumns.length < 6) continue;
 
-          const existing = parsedByName.get(normalizedName);
-          const shouldReplace = !existing ||
-            (measurementDateObj && !existing.measurementDateObj) ||
-            (measurementDateObj && existing.measurementDateObj && measurementDateObj > existing.measurementDateObj);
-
-          if (shouldReplace) {
-            parsedByName.set(normalizedName, nextEntry);
-          }
+          csvRows.push({
+            measurementDate: cleanColumns[0],
+            name: cleanColumns[1],
+            height: parseNumber(cleanColumns[2]),
+            weight: parseNumber(cleanColumns[3]),
+            sittingHeight: parseNumber(cleanColumns[4]),
+            birthDate: cleanColumns[5]
+          });
         }
 
-        const parsedData = Array.from(parsedByName.values());
+        const parsedData = processRows(csvRows, currentTeamMapping);
 
         console.log(`Łącznie sparsowanych zawodników: ${parsedData.length}`);
 
@@ -383,23 +401,23 @@ export default function PHVDashboard() {
           console.log(`${method.name} - brak danych po parsowaniu`);
           continue;
         }
-        
+
         setData(parsedData);
         setLastUpdate(new Date());
         setAccessMethod(method.name);
         success = true;
         break;
-        
+
       } catch (err) {
         console.error(`${method.name} - błąd:`, err);
         continue;
       }
     }
-    
+
     if (!success) {
       setError('Nie można pobrać danych z arkusza PHV. Sprawdź uprawnienia.');
     }
-    
+
     setLoading(false);
   };
 
@@ -409,7 +427,9 @@ export default function PHVDashboard() {
       await fetchData(mapping);
     };
     loadData();
-    const interval = setInterval(() => fetchData(teamMapping), 30000);
+    // Używamy teamMappingRef.current zamiast stanu teamMapping, żeby setInterval
+    // zawsze widział aktualną wersję mapowania (bez stale closure)
+    const interval = setInterval(() => fetchData(teamMappingRef.current), 30000);
     return () => clearInterval(interval);
   }, []);
 
