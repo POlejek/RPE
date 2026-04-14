@@ -222,7 +222,8 @@ export default function PHVDashboard() {
       const team = currentTeamMapping.get(normalizedName) || 'Brak drużyny';
       const gender = 'Chłopiec';
       const legLength = height - sittingHeight;
-      const age = calculateAge(birthDate, measurementDate);
+      // Wiek liczony od dziś, żeby offset PHV aktualizował się na bieżąco
+      const age = calculateAge(birthDate);
 
       if (age === 0) continue;
 
@@ -530,7 +531,7 @@ export default function PHVDashboard() {
           </div>
           
           <div className="mt-4 text-sm text-gray-600 bg-purple-50 p-3 rounded-lg">
-            📊 Dane z Google Sheets • Automatyczne obliczenia PHV (wzór Mirwalda) • Odświeżanie co 30s
+            📊 Dane z Google Sheets • Automatyczne obliczenia PHV (wzór Mirwalda) • Offset przeliczany wg aktualnej daty • Odświeżanie co 30s
           </div>
         </div>
 
