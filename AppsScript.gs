@@ -259,12 +259,110 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  const params = e ? e.parameter : {};
+  const action = params.action || '';
+
+  if (action === 'getPHVData') {
+    return getPHVData();
+  }
+
   return ContentService.createTextOutput(JSON.stringify({
     status: 'ok',
     message: 'Google Apps Script działa poprawnie',
     timestamp: new Date().toISOString(),
-    version: '2.0'
+    version: '3.0'
   })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Zwraca dane PHV zbiorcze + mapowanie drużyn jako JSON.
+ * Wywoływane przez GET ?action=getPHVData
+ */
+function getPHVData() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const phvSheet = ss.getSheetByName('PHV zbiorcze');
+    const teamSheet = ss.getSheetByName('Zawodnicy');
+
+    if (!phvSheet) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error',
+        message: 'Nie znaleziono arkusza "PHV zbiorcze"'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Wczytaj mapowanie: nazwisko (lower) -> drużyna
+    const teamMapping = {};
+    if (teamSheet) {
+      const teamLastRow = teamSheet.getLastRow();
+      if (teamLastRow >= 2) {
+        const teamValues = teamSheet.getRange(2, 1, teamLastRow - 1, 2).getValues();
+        for (const row of teamValues) {
+          const name = row[0] ? row[0].toString().trim() : '';
+          const team = row[1] ? row[1].toString().trim() : '';
+          if (name && team) {
+            teamMapping[name.toLowerCase()] = team;
+          }
+        }
+      }
+    }
+
+    // Wczytaj dane PHV
+    const phvLastRow = phvSheet.getLastRow();
+    if (phvLastRow < 2) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success',
+        data: [],
+        teamMapping: teamMapping
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const numCols = Math.min(phvSheet.getLastColumn(), 6);
+    const phvValues = phvSheet.getRange(2, 1, phvLastRow - 1, numCols).getValues();
+    const tz = Session.getScriptTimeZone();
+
+    const rows = [];
+    for (const row of phvValues) {
+      // Kolumny: Sygnatura | Imię i Nazwisko | Wzrost | Masa | Wzrost siedzący | Data urodzenia
+      let measurementDate = '';
+      if (row[0]) {
+        measurementDate = row[0] instanceof Date
+          ? Utilities.formatDate(row[0], tz, 'yyyy-MM-dd HH:mm:ss')
+          : row[0].toString();
+      }
+
+      const name = row[1] ? row[1].toString().trim() : '';
+      const height = row[2] !== '' ? Number(row[2]) : 0;
+      const weight = row[3] !== '' ? Number(row[3]) : 0;
+      const sittingHeight = row[4] !== '' ? Number(row[4]) : 0;
+
+      let birthDate = '';
+      if (row[5]) {
+        birthDate = row[5] instanceof Date
+          ? Utilities.formatDate(row[5], tz, 'yyyy-MM-dd')
+          : row[5].toString();
+      }
+
+      if (name) {
+        rows.push({ measurementDate, name, height, weight, sittingHeight, birthDate });
+      }
+    }
+
+    Logger.log('getPHVData: zwrócono ' + rows.length + ' wierszy');
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      data: rows,
+      teamMapping: teamMapping
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    Logger.log('getPHVData błąd: ' + err.toString());
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: 'Błąd odczytu danych: ' + err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**
